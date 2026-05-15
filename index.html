@@ -143,6 +143,12 @@
           .attr('stroke-width', 0.5);
 
       startGame();
+      const p = new URLSearchParams(location.search);
+      if (p.has('test')) {
+        const [c, t] = (p.get('test') || '40/40').split('/').map(Number);
+        state.score = { correct: c, total: t };
+        showGameOver();
+      }
     }
 
     init();
