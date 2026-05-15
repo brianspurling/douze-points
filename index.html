@@ -65,24 +65,6 @@
   <script>
     const TOPBAR_H = 0;
 
-    // Cyprus (196) is just outside the rendered viewport; Malta (470) isn't
-    // present in the 110m world-atlas dataset at all — both excluded from play.
-    const EU_IDS = new Set([
-      40, 56, 100, 191, 203, 208, 233, 246, 250, 276,
-      300, 348, 372, 380, 428, 440, 442, 528, 616, 620,
-      642, 703, 705, 724, 752
-    ]);
-
-    const EU_NAMES = {
-      40: 'Austria',     56: 'Belgium',     100: 'Bulgaria',  191: 'Croatia',
-      203: 'Czechia',    208: 'Denmark',    233: 'Estonia',   246: 'Finland',
-      250: 'France',     276: 'Germany',    300: 'Greece',    348: 'Hungary',
-      372: 'Ireland',    380: 'Italy',      428: 'Latvia',    440: 'Lithuania',
-      442: 'Luxembourg', 528: 'Netherlands',616: 'Poland',    620: 'Portugal',
-      642: 'Romania',    703: 'Slovakia',   705: 'Slovenia',  724: 'Spain',
-      752: 'Sweden'
-    };
-
     // Geographic bounds we want to fill the viewport with.
     const EU_WEST = -11, EU_EAST = 33, EU_SOUTH = 34, EU_NORTH = 71;
 
@@ -162,7 +144,7 @@
 
     // ── Helpers ─────────────────────────────────────────────────────────
     function currentName() {
-      return EU_NAMES[+state.current.id];
+      return state.current.properties.name;
     }
 
     function setPrompt(html) {
@@ -178,8 +160,7 @@
 
     // ── Round loop ───────────────────────────────────────────────────────
     function startGame() {
-      const euFeatures = allFeatures.filter(f => EU_IDS.has(+f.id));
-      state.remaining = d3.shuffle([...euFeatures]);
+      state.remaining = d3.shuffle([...europeFeatures]);
       state.score     = { correct: 0, total: 0 };
       state.pins      = [];
       state.phase     = 'idle';
@@ -228,7 +209,7 @@
       const correct = d3.geoContains(feature, [lon, lat]);
 
       countriesGroup.selectAll('path')
-        .filter(d => +d.id === +feature.id)
+        .filter(d => d === feature)
         .attr('fill', correct ? '#4caf50' : '#e53935');
 
       pendingCircle.remove();
