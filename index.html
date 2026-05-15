@@ -273,7 +273,17 @@
     function reveal(lon, lat, pendingCircle) {
       const feature = state.current;
       const name    = currentName();
-      const correct = d3.geoContains(feature, [lon, lat]);
+      let correct = d3.geoContains(feature, [lon, lat]);
+      if (!correct) {
+        const screenArea = pathGen.area(feature);
+        if (screenArea < 2000) {
+          const [sx, sy] = projection([lon, lat]);
+          const [cx, cy] = projection(d3.geoCentroid(feature));
+          const dist = Math.hypot(sx - cx, sy - cy);
+          const radius = Math.min(35, Math.sqrt(2000 / screenArea) * 15);
+          if (dist < radius) correct = true;
+        }
+      }
 
       countriesGroup.selectAll('path')
         .filter(d => d === feature)
