@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "guess-the-country",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3421", "."],
+      "port": 3421
+    }
+  ]
+}

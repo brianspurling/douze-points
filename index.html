@@ -7,23 +7,24 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0f1923; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
 
-    #topbar {
-      position: fixed; top: 0; left: 0; right: 0; height: 56px;
-      background: #16213e; display: flex; align-items: center;
-      justify-content: space-between; padding: 0 24px; z-index: 10;
-      border-bottom: 1px solid #2a3a5c;
+    #prompt {
+      position: fixed; top: 16px; left: 20px; z-index: 10;
+      font-size: 1.15rem; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
     }
-    #prompt { font-size: 1.15rem; }
     #prompt strong { color: #f0c040; }
-    #right { display: flex; align-items: center; gap: 16px; }
-    #score { font-size: 0.95rem; opacity: 0.75; }
+    #right {
+      position: fixed; top: 14px; right: 20px; z-index: 10;
+      display: flex; align-items: center; gap: 16px;
+    }
+    #score { font-size: 0.95rem; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
     #new-game {
       background: #e94560; border: none; color: #fff;
       padding: 7px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
     #new-game:hover { background: #c73652; }
 
-    #map { display: block; position: fixed; top: 56px; left: 0; cursor: crosshair; }
+    #map { display: block; position: fixed; top: 0; left: 0; cursor: crosshair; overflow: hidden; }
 
     #overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.72);
@@ -46,14 +47,12 @@
   </style>
 </head>
 <body>
-  <div id="topbar">
-    <span id="prompt">Loading map…</span>
-    <div id="right">
-      <span id="score"></span>
-      <button id="new-game">New Game</button>
-    </div>
-  </div>
   <svg id="map"></svg>
+  <span id="prompt">Loading map…</span>
+  <div id="right">
+    <span id="score"></span>
+    <button id="new-game">New Game</button>
+  </div>
   <div id="overlay" class="hidden">
     <div id="overlay-box">
       <div id="final-score"></div>
@@ -64,7 +63,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
   <script>
-    const TOPBAR_H = 56;
+    const TOPBAR_H = 0;
 
     const EU_IDS = new Set([
       40, 56, 100, 191, 196, 203, 208, 233, 246, 250,
@@ -82,48 +81,67 @@
       705: 'Slovenia',  724: 'Spain',       752: 'Sweden'
     };
 
-    const EUROPE_FEATURE = {
-      type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [[
-        [-25, 34], [45, 34], [45, 71], [-25, 71], [-25, 34]
-      ]]}
-    };
+    // Geographic bounds we want to fill the viewport with.
+    const EU_WEST = -11, EU_EAST = 33, EU_SOUTH = 34, EU_NORTH = 71;
 
     const svg            = d3.select('#map');
     const countriesGroup = svg.append('g').attr('class', 'countries');
     const pinsGroup      = svg.append('g').attr('class', 'pins');
 
-    let projection, pathGen, allFeatures;
+    let projection, pathGen, allFeatures, europeFeatures;
 
     function mapSize() {
       return [window.innerWidth, window.innerHeight - TOPBAR_H];
     }
 
-    function buildProjection([w, h]) {
-      return d3.geoMercator().fitSize([w, h], EUROPE_FEATURE);
+    function isEuropean(feature) {
+      const [lon, lat] = d3.geoCentroid(feature);
+      return lon >= -11 && lon <= 32 && lat >= 35 && lat <= 72;
     }
 
-    function euFill(feature) {
-      return EU_IDS.has(+feature.id) ? '#3a4a6b' : '#1e2a3a';
+    // Compute Mercator scale + translate manually so the lat/lon bbox FILLS [w, h].
+    // d3.geoPath.bounds curves great-circle edges and gives wildly wrong results
+    // for fitSize on a polygon bbox, so we do the math directly here.
+    function buildProjection([w, h]) {
+      const mercY = lat => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
+      const lonSpan = (EU_EAST - EU_WEST) * Math.PI / 180; // radians
+      const latSpan = mercY(EU_NORTH) - mercY(EU_SOUTH);   // mercator units
+      // Scale so the bbox FITS inside the viewport — no part of Europe is cropped.
+      // On wide screens this leaves dark background on the sides; on tall screens, top/bottom.
+      const scale = Math.min(w / lonSpan, h / latSpan);
+      const centerLon = (EU_WEST + EU_EAST) / 2;
+      const centerLat = (EU_NORTH + EU_SOUTH) / 2;
+      return d3.geoMercator()
+        .scale(scale)
+        .center([centerLon, centerLat])
+        .translate([w / 2, h / 2]);
     }
+
+    const LAND_COLOR = '#3a4a6b';
 
     async function init() {
       const topo = await d3.json(
         'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
       );
       allFeatures = topojson.feature(topo, topo.objects.countries).features;
+      europeFeatures = allFeatures.filter(isEuropean);
 
       const [w, h] = mapSize();
       svg.attr('width', w).attr('height', h);
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
 
+      svg.append('defs').append('clipPath').attr('id', 'map-clip')
+        .append('rect').attr('id', 'clip-rect').attr('width', w).attr('height', h);
+      countriesGroup.attr('clip-path', 'url(#map-clip)');
+      pinsGroup.attr('clip-path', 'url(#map-clip)');
+
       countriesGroup.selectAll('path')
-        .data(allFeatures)
+        .data(europeFeatures)
         .join('path')
           .attr('d', pathGen)
-          .attr('fill', euFill)
-          .attr('stroke', '#4a5a7a')
+          .attr('fill', LAND_COLOR)
+          .attr('stroke', LAND_COLOR)
           .attr('stroke-width', 0.5);
 
       document.getElementById('prompt').textContent = 'Map loaded — click New Game to play';
@@ -164,7 +182,7 @@
       state.pins      = [];
       state.phase     = 'idle';
 
-      countriesGroup.selectAll('path').attr('fill', euFill);
+      countriesGroup.selectAll('path').attr('fill', LAND_COLOR).attr('stroke', LAND_COLOR);
       pinsGroup.selectAll('*').remove();
       document.getElementById('overlay').classList.add('hidden');
       updateScore();
@@ -259,6 +277,7 @@
     window.addEventListener('resize', () => {
       const [w, h] = mapSize();
       svg.attr('width', w).attr('height', h);
+      d3.select('#clip-rect').attr('width', w).attr('height', h);
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
       countriesGroup.selectAll('path').attr('d', pathGen);
