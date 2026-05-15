@@ -188,6 +188,7 @@
     }
 
     function triggerConfetti() {
+      if (typeof confetti !== 'function') return;
       const opts = {
         particleCount: 80, spread: 60,
         colors: ['#0093dd', '#ffde00', '#ffffff'],
@@ -207,7 +208,7 @@
           'z-index:30', 'pointer-events:none',
           `animation:fallDown ${2 + Math.random()}s ease-in forwards`,
           `animation-delay:${Math.random() * 1}s`,
-        ].join(';');
+        ].join(';') + ';';
         document.body.appendChild(el);
         el.addEventListener('animationend', () => el.remove());
       }
