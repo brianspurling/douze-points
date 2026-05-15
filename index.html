@@ -172,6 +172,47 @@
         : '';
     }
 
+    function getEurovisionTier(correct, total) {
+      const pct = total === 0 ? 0 : (correct / total) * 100;
+      if (pct < 20) return { points: 0,  label: 'Nul points',    colour: '#c62828' };
+      if (pct < 27) return { points: 1,  label: 'Un point',      colour: '#e65100' };
+      if (pct < 34) return { points: 2,  label: 'Deux points',   colour: '#e65100' };
+      if (pct < 41) return { points: 3,  label: 'Trois points',  colour: '#e65100' };
+      if (pct < 48) return { points: 4,  label: 'Quatre points', colour: '#ffffff' };
+      if (pct < 55) return { points: 5,  label: 'Cinq points',   colour: '#ffffff' };
+      if (pct < 62) return { points: 6,  label: 'Six points',    colour: '#ffffff' };
+      if (pct < 68) return { points: 7,  label: 'Sept points',   colour: '#ffd600' };
+      if (pct < 74) return { points: 8,  label: 'Huit points',   colour: '#ffd600' };
+      if (pct < 80) return { points: 10, label: 'Dix points',    colour: '#ffab00' };
+      return              { points: 12, label: 'Douze points',   colour: '#ffe57f' };
+    }
+
+    function triggerConfetti() {
+      const opts = {
+        particleCount: 80, spread: 60,
+        colors: ['#0093dd', '#ffde00', '#ffffff'],
+      };
+      confetti({ ...opts, origin: { x: 0.1, y: 0.9 } });
+      setTimeout(() => confetti({ ...opts, origin: { x: 0.9, y: 0.9 } }), 300);
+    }
+
+    function triggerHeartRain() {
+      for (let i = 0; i < 20; i++) {
+        const el = document.createElement('div');
+        el.textContent = '💔';
+        el.style.cssText = [
+          'position:fixed', 'top:-2rem',
+          `left:${Math.random() * 100}vw`,
+          `font-size:${1 + Math.random()}rem`,
+          'z-index:30', 'pointer-events:none',
+          `animation:fallDown ${2 + Math.random()}s ease-in forwards`,
+          `animation-delay:${Math.random() * 1}s`,
+        ].join(';');
+        document.body.appendChild(el);
+        el.addEventListener('animationend', () => el.remove());
+      }
+    }
+
     // ── Round loop ───────────────────────────────────────────────────────
     function startGame() {
       state.remaining = d3.shuffle([...europeFeatures]);
