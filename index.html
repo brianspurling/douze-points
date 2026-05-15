@@ -44,6 +44,17 @@
     #play-again:hover { background: #3d8b40; }
 
     .pin-label { font-size: 10px; fill: #fff; text-anchor: middle; pointer-events: none; }
+    #spokesperson {
+      font-size: 1rem; font-style: italic; color: #ccc;
+      margin-bottom: 24px;
+    }
+    #eur-points-label {
+      font-size: 3.5rem; font-weight: bold; margin-bottom: 24px;
+      will-change: transform, opacity;
+    }
+    @keyframes fallDown {
+      to { transform: translateY(110vh); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -55,6 +66,8 @@
   </div>
   <div id="overlay" class="hidden">
     <div id="overlay-box">
+      <div id="spokesperson"></div>
+      <div id="eur-points-label"></div>
       <div id="final-score"></div>
       <div id="final-label">correct</div>
       <button id="play-again">Play Again</button>
@@ -62,6 +75,7 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script>
     const TOPBAR_H = 0;
 
