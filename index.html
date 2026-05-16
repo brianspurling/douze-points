@@ -369,7 +369,7 @@
           const [sx, sy] = projection([lon, lat]);
           const [cx, cy] = projection(d3.geoCentroid(feature));
           const dist = Math.hypot(sx - cx, sy - cy);
-          const radius = Math.min(23, Math.sqrt(2000 / screenArea) * 15);
+          const radius = Math.min(12, Math.sqrt(2000 / screenArea) * 7.5);
           if (dist < radius) correct = true;
         }
       }
