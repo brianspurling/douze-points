@@ -249,7 +249,22 @@
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
         const [c, t] = (p.get('test') || '40/40').split('/').map(Number);
+        const chosen = d3.shuffle([...europeFeatures]).slice(0, t);
+        const pins = chosen.map((feat, idx) => {
+          const [lon, lat] = d3.geoCentroid(feat);
+          return { name: feat.properties.name, correct: idx < c, lon, lat };
+        });
+        state.pins = d3.shuffle(pins);
         state.score = { correct: c, total: t };
+        state.pins.forEach(pin => {
+          const feature = europeFeatures.find(f => f.properties.name === pin.name);
+          if (feature) {
+            countriesGroup.selectAll('path')
+              .filter(d => d === feature)
+              .attr('fill', pin.correct ? '#4caf50' : '#e53935');
+          }
+        });
+        renderPins();
         showGameOver();
       }
     }
@@ -452,7 +467,8 @@
 
     async function shareGame() {
       const text = buildShareText();
-      if (navigator.share) {
+      const isTouch = window.matchMedia('(pointer: coarse)').matches;
+      if (isTouch && navigator.share) {
         try { await navigator.share({ title: 'Where EU?', text }); return; }
         catch (e) { /* user cancelled — fall through to clipboard */ }
       }
