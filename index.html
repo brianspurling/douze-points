@@ -41,8 +41,9 @@
     #menu-button {
       position: fixed; top: 14px; right: 20px; z-index: 11;
       background: rgba(255,255,255,0.1); border: none; color: #fff;
-      width: 42px; height: 42px; border-radius: 4px; cursor: pointer;
+      width: 42px; height: 36px; border-radius: 4px; cursor: pointer;
       font-size: 1.3rem; line-height: 1; padding: 0;
+      display: flex; align-items: center; justify-content: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
     #menu-button:hover { background: rgba(255,255,255,0.2); }
@@ -98,8 +99,11 @@
     }
     #close-overlay:hover { color: #fff; }
     #final-score { font-size: 2.4rem; font-weight: bold; margin-bottom: 6px; }
-    #final-label { font-size: 1rem; opacity: 0.6; margin-bottom: 16px; }
-    #emoji-list { font-size: 1.4rem; margin: 0 0 20px; line-height: 1.8; max-width: 280px; text-align: center; }
+    #emoji-list { margin: 0 auto 20px; max-width: 340px; }
+    .emoji-section { margin-bottom: 14px; text-align: center; }
+    .emoji-section:last-child { margin-bottom: 0; }
+    .emoji-header { font-size: 1.5rem; margin-bottom: 6px; line-height: 1; }
+    .emoji-flags { font-size: 1.4rem; line-height: 1.5; word-spacing: 0.15em; }
     #share-btn {
       display: block; margin: 0 auto 12px; background: #2a3a5c; border: none;
       color: #fff; padding: 10px 28px; border-radius: 4px; cursor: pointer;
@@ -151,7 +155,6 @@
       <div id="spokesperson"></div>
       <div id="eur-points-label"></div>
       <div id="final-score"></div>
-      <div id="final-label">correct</div>
       <div id="emoji-list"></div>
       <button id="share-btn">Share your map!</button>
       <button id="play-again">Play Again</button>
@@ -687,7 +690,6 @@
       const isDouze = tier.points === 12;
 
       const scoreEl  = document.getElementById('final-score');
-      const labelEl  = document.getElementById('final-label');
       const emojiEl  = document.getElementById('emoji-list');
       const btnEl    = document.getElementById('play-again');
       const shareEl  = document.getElementById('share-btn');
@@ -695,7 +697,7 @@
       const tierEl   = document.getElementById('eur-points-label');
 
       // Reset state (clear any previous-game transitions before setting values)
-      [scoreEl, labelEl, emojiEl, btnEl, shareEl, spokesEl, tierEl].forEach(el => {
+      [scoreEl, emojiEl, btnEl, shareEl, spokesEl, tierEl].forEach(el => {
         el.style.transition = 'none';
         el.style.opacity    = '0';
       });
@@ -712,10 +714,14 @@
 
       const correctPins = state.pins.filter(p => p.correct);
       const wrongPins   = state.pins.filter(p => !p.correct);
-      const emojiLines = [];
-      if (correctPins.length) emojiLines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
-      if (wrongPins.length)   emojiLines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
-      emojiEl.innerHTML = emojiLines.map(l => `<div>${l}</div>`).join('');
+      const sections = [];
+      if (correctPins.length) {
+        sections.push(`<div class="emoji-section"><div class="emoji-header">✅</div><div class="emoji-flags">${correctPins.map(p => countryFlag(p.name)).join(' ')}</div></div>`);
+      }
+      if (wrongPins.length) {
+        sections.push(`<div class="emoji-section"><div class="emoji-header">❌</div><div class="emoji-flags">${wrongPins.map(p => countryFlag(p.name)).join(' ')}</div></div>`);
+      }
+      emojiEl.innerHTML = sections.join('');
 
       document.getElementById('overlay').classList.remove('hidden');
 
@@ -736,7 +742,7 @@
 
       // 3. Fade in score, emoji list, share, and Play Again button
       gameOverTimeouts.push(setTimeout(() => {
-        [scoreEl, labelEl, emojiEl, shareEl, btnEl].forEach(el => {
+        [scoreEl, emojiEl, shareEl, btnEl].forEach(el => {
           el.style.transition = 'opacity 0.5s';
           el.style.opacity    = '1';
         });
