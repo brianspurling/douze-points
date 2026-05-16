@@ -98,18 +98,19 @@
     }
     #close-overlay:hover { color: #fff; }
     #final-score { font-size: 2.4rem; font-weight: bold; margin-bottom: 6px; }
-    #final-label { font-size: 1rem; opacity: 0.6; margin-bottom: 28px; }
+    #final-label { font-size: 1rem; opacity: 0.6; margin-bottom: 16px; }
+    #emoji-list { font-size: 1.4rem; margin: 0 0 20px; line-height: 1.8; max-width: 280px; text-align: center; }
+    #share-btn {
+      display: block; margin: 0 auto 12px; background: #2a3a5c; border: none;
+      color: #fff; padding: 10px 28px; border-radius: 4px; cursor: pointer;
+      font-size: 0.95rem;
+    }
+    #share-btn:hover { background: #3a4a6c; }
     #play-again {
       background: #4caf50; border: none; color: #fff;
       padding: 12px 36px; border-radius: 4px; cursor: pointer; font-size: 1rem;
     }
     #play-again:hover { background: #3d8b40; }
-    #share-btn {
-      display: block; margin: 12px auto 0; background: #2a3a5c; border: none;
-      color: #fff; padding: 10px 28px; border-radius: 4px; cursor: pointer;
-      font-size: 0.95rem;
-    }
-    #share-btn:hover { background: #3a4a6c; }
     #share-toast {
       position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.85); color: #fff; padding: 6px 14px;
@@ -151,8 +152,9 @@
       <div id="eur-points-label"></div>
       <div id="final-score"></div>
       <div id="final-label">correct</div>
+      <div id="emoji-list"></div>
+      <button id="share-btn">Share your map!</button>
       <button id="play-again">Play Again</button>
-      <button id="share-btn">Share</button>
       <div id="share-toast">Copied to clipboard</div>
     </div>
   </div>
@@ -449,6 +451,14 @@
       document.getElementById('overlay').classList.add('hidden');
     });
 
+    function buildShareUrl() {
+      const payload = {
+        s: currentSet,
+        p: state.pins.map(p => [p.name, p.correct ? 1 : 0, +p.lon.toFixed(2), +p.lat.toFixed(2)]),
+      };
+      return `${location.origin}${location.pathname}#s=${btoa(JSON.stringify(payload))}`;
+    }
+
     function buildShareText() {
       const correctPins = state.pins.filter(p => p.correct);
       const wrongPins   = state.pins.filter(p => !p.correct);
@@ -456,29 +466,29 @@
       const lines = [`Where EU? ${state.score.correct} right, ${wrongPins.length} wrong — ${tier.label}`];
       if (correctPins.length) lines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
       if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
-      const payload = {
-        s: currentSet,
-        p: state.pins.map(p => [p.name, p.correct ? 1 : 0, +p.lon.toFixed(2), +p.lat.toFixed(2)]),
-      };
-      const url = `${location.origin}${location.pathname}#s=${btoa(JSON.stringify(payload))}`;
-      lines.push('', url);
+      lines.push('', buildShareUrl());
       return lines.join('\n');
     }
 
     async function shareGame() {
-      const text = buildShareText();
       const isTouch = window.matchMedia('(pointer: coarse)').matches;
-      if (isTouch && navigator.share) {
-        try { await navigator.share({ title: 'Where EU?', text }); return; }
-        catch (e) { /* user cancelled — fall through to clipboard */ }
-      }
-      try {
-        await navigator.clipboard.writeText(text);
+      const showToast = () => {
         const toast = document.getElementById('share-toast');
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 1500);
-      } catch (e) {
-        prompt('Copy this:', text);
+      };
+      if (isTouch) {
+        const text = buildShareText();
+        if (navigator.share) {
+          try { await navigator.share({ title: 'Where EU?', text }); return; }
+          catch (e) { /* user cancelled — fall through to clipboard */ }
+        }
+        try { await navigator.clipboard.writeText(text); showToast(); }
+        catch (e) { prompt('Copy this:', text); }
+      } else {
+        const url = buildShareUrl();
+        try { await navigator.clipboard.writeText(url); showToast(); }
+        catch (e) { prompt('Copy this:', url); }
       }
     }
     document.getElementById('share-btn').addEventListener('click', shareGame);
@@ -545,6 +555,44 @@
       }
     }
 
+    // ── Visibility helpers ───────────────────────────────────────────────
+    function isFeatureVisible(feature) {
+      const t = d3.zoomTransform(svg.node());
+      const [w, h] = mapSize();
+      const [[x0, y0], [x1, y1]] = pathGen.bounds(feature);
+      const sx0 = t.x + t.k * x0, sx1 = t.x + t.k * x1;
+      const sy0 = t.y + t.k * y0, sy1 = t.y + t.k * y1;
+      return sx1 >= 0 && sx0 <= w && sy1 >= 0 && sy0 <= h;
+    }
+
+    function panToFeature(feature, duration) {
+      const [w, h] = mapSize();
+      const [[x0, y0], [x1, y1]] = pathGen.bounds(feature);
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      const k = 1;
+      svg.transition().duration(duration).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(w/2 - k * cx, h/2 - k * cy).scale(k)
+      );
+    }
+
+    function pulseFeature(feature) {
+      const [lon, lat] = d3.geoCentroid(feature);
+      const t = d3.zoomTransform(svg.node());
+      const [px, py] = projection([lon, lat]);
+      const [cx, cy] = t.apply([px, py]);
+      for (let i = 0; i < 3; i++) {
+        pinsGroup.append('circle')
+          .attr('cx', cx).attr('cy', cy).attr('r', 8)
+          .attr('fill', 'none').attr('stroke', '#fff').attr('stroke-width', 3)
+          .attr('opacity', 0.9)
+          .style('pointer-events', 'none')
+          .transition().delay(i * 400).duration(1300)
+          .attr('r', 60).attr('opacity', 0)
+          .on('end', function() { d3.select(this).remove(); });
+      }
+    }
+
     // ── Reveal ───────────────────────────────────────────────────────────
     function reveal(lon, lat) {
       const feature = state.current;
@@ -587,13 +635,28 @@
       state.phase = 'revealed';
       updateScore();
 
+      let nextDelay = 1000;
+      if (!correct) {
+        let panTime = 0;
+        if (!isFeatureVisible(feature)) {
+          panToFeature(feature, 800);
+          panTime = 850;
+        }
+        if (pathGen.area(feature) < 200) {
+          setTimeout(() => pulseFeature(feature), panTime);
+          nextDelay = panTime + 1800;
+        } else {
+          nextDelay = panTime + 1000;
+        }
+      }
+
       setTimeout(() => {
         if (state.remaining.length === 0) {
           showGameOver();
         } else {
           startRound();
         }
-      }, 1000);
+      }, nextDelay);
     }
 
     // ── Click handler ────────────────────────────────────────────────────
@@ -625,12 +688,14 @@
 
       const scoreEl  = document.getElementById('final-score');
       const labelEl  = document.getElementById('final-label');
+      const emojiEl  = document.getElementById('emoji-list');
       const btnEl    = document.getElementById('play-again');
+      const shareEl  = document.getElementById('share-btn');
       const spokesEl = document.getElementById('spokesperson');
       const tierEl   = document.getElementById('eur-points-label');
 
       // Reset state (clear any previous-game transitions before setting values)
-      [scoreEl, labelEl, btnEl, spokesEl, tierEl].forEach(el => {
+      [scoreEl, labelEl, emojiEl, btnEl, shareEl, spokesEl, tierEl].forEach(el => {
         el.style.transition = 'none';
         el.style.opacity    = '0';
       });
@@ -644,6 +709,13 @@
       tierEl.textContent = tier.label;
       tierEl.style.color = tier.colour;
       if (isDouze) tierEl.style.textShadow = `0 0 20px ${tier.colour}`;
+
+      const correctPins = state.pins.filter(p => p.correct);
+      const wrongPins   = state.pins.filter(p => !p.correct);
+      const emojiLines = [];
+      if (correctPins.length) emojiLines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
+      if (wrongPins.length)   emojiLines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
+      emojiEl.innerHTML = emojiLines.map(l => `<div>${l}</div>`).join('');
 
       document.getElementById('overlay').classList.remove('hidden');
 
@@ -662,9 +734,9 @@
         if (isNul)   triggerHeartRain();
       }, 2000));
 
-      // 3. Fade in score and Play Again button
+      // 3. Fade in score, emoji list, share, and Play Again button
       gameOverTimeouts.push(setTimeout(() => {
-        [scoreEl, labelEl, btnEl].forEach(el => {
+        [scoreEl, labelEl, emojiEl, shareEl, btnEl].forEach(el => {
           el.style.transition = 'opacity 0.5s';
           el.style.opacity    = '1';
         });
