@@ -1,13 +1,13 @@
-# Guess the Country
+# Douze Points
 
-Single-file client-side geography game. Player is asked to click on a named European country; after a 750ms delay the country fills in and a green/red pin reveals whether the click was inside its boundary. Running score, persistent pins/fills across rounds, auto-starts on page load.
+Single-file client-side Eurovision-themed geography game. Player is asked to click on a named European country; after a 750ms delay the country fills in and a green/red pin reveals whether the click was inside its boundary. Running score, persistent pins/fills across rounds, auto-starts on page load.
 
 ## Stack
 
 - **Single file:** `index.html` — inline CSS + inline JS, no build step.
 - **D3 v7** + **TopoJSON client v3** loaded from jsDelivr.
 - **world-atlas v2** (`countries-110m.json`) for country boundaries.
-- **fly.io** for deployment: `Dockerfile` (nginx:alpine) + `fly.toml` (app `where-eu`, region `lhr`).
+- **fly.io** for deployment: `Dockerfile` (nginx:alpine) + `fly.toml` (app `douze-points`, region `lhr`).
 
 ## Architecture
 
@@ -30,13 +30,13 @@ Single-file client-side geography game. Player is asked to click on a named Euro
 
 ## CI/CD
 
-- **GitHub remote:** https://github.com/brianspurling/where-eu
+- **GitHub remote:** https://github.com/brianspurling/douze-points
 - **Auto-deploy:** `.github/workflows/deploy.yml` — pushes to Fly.io on every merge to `main` via `flyctl deploy --remote-only`.
 - Requires `FLY_API_TOKEN` secret set in GitHub repository settings.
 
 ## Run
 
-Open `index.html` in any browser, or `fly deploy` to push to https://where-eu.fly.dev.
+Open `index.html` in any browser, or `fly deploy` to push to https://douze-points.fly.dev.
 
 ## Docs
 

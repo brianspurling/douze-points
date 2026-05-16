@@ -1,8 +1,8 @@
-# Where EU?
+# Douze Points
 
-A geography game — click the named country on the map.
+A Eurovision-themed geography game — click the named country on the map. Score with Eurovision points (nul to douze).
 
-**Play:** https://where-eu.fly.dev
+**Play:** https://douze-points.fly.dev
 
 ## Stack
 

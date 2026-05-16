@@ -1,4 +1,4 @@
-app = "where-eu"
+app = "douze-points"
 primary_region = "lhr"
 
 [build]

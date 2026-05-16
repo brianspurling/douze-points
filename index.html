@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Guess the Country</title>
+  <title>Douze Points</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🇪🇺</text></svg>">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0f1923; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; cursor: crosshair; }
@@ -99,7 +100,7 @@
     }
     #close-overlay:hover { color: #fff; }
     #final-score { font-size: 2.4rem; font-weight: bold; margin-bottom: 6px; }
-    #emoji-list { margin: 0 auto 20px; max-width: 340px; }
+    #emoji-list { margin: 20px auto; max-width: 340px; }
     .emoji-section { margin-bottom: 14px; text-align: center; }
     .emoji-section:last-child { margin-bottom: 0; }
     .emoji-header { font-size: 1.5rem; margin-bottom: 6px; line-height: 1; }
@@ -278,6 +279,7 @@
 
     // ── State ───────────────────────────────────────────────────────────
     let gameOverTimeouts = [];
+    let currentGrahamAudio = null;
     let state = {
       remaining: [],
       current:   null,
@@ -370,10 +372,52 @@
       }
     }
 
+    const GRAHAM_CLIPS = {
+      brutal: [
+        'audio/less-foolish.mp3',
+        'audio/not-one-of-those.mp3',
+        'audio/oh-stop-it.mp3',
+        'audio/oh-dear.mp3',
+      ],
+      backhanded: [
+        'audio/not-embarrassing.mp3',
+        'audio/marmite.mp3',
+        'audio/three-minutes.mp3',
+      ],
+      good: [
+        'audio/bar-set-high.mp3',
+      ],
+    };
+
+    function stopGrahamAudio() {
+      if (currentGrahamAudio) { currentGrahamAudio.pause(); currentGrahamAudio = null; }
+    }
+
+    function playGrahamForScore(correct, total) {
+      stopGrahamAudio();
+      if (total === 0) return;
+      const pct = (correct / total) * 100;
+      const bucket = pct < 41 ? 'brutal' : pct < 63 ? 'backhanded' : 'good';
+      const clips = GRAHAM_CLIPS[bucket];
+      const path  = clips[Math.floor(Math.random() * clips.length)];
+      const audio = new Audio(path);
+      currentGrahamAudio = audio;
+      audio.play().catch(err => {
+        if (err.name === 'NotAllowedError') {
+          // Autoplay blocked (e.g. arrived via ?test= URL without interaction).
+          // Retry on first user gesture.
+          document.addEventListener('pointerdown', () => {
+            if (currentGrahamAudio === audio) audio.play().catch(() => {});
+          }, { once: true });
+        }
+      });
+    }
+
     // ── Round loop ───────────────────────────────────────────────────────
     function startGame() {
       gameOverTimeouts.forEach(clearTimeout);
       gameOverTimeouts = [];
+      stopGrahamAudio();
       document.querySelectorAll('.heart-rain').forEach(el => el.remove());
       if (zoom) svg.call(zoom.transform, d3.zoomIdentity);
       state.remaining = d3.shuffle([...europeFeatures]);
@@ -466,7 +510,7 @@
       const correctPins = state.pins.filter(p => p.correct);
       const wrongPins   = state.pins.filter(p => !p.correct);
       const tier = getEurovisionTier(state.score.correct, state.score.total);
-      const lines = [`Where EU? ${state.score.correct} right, ${wrongPins.length} wrong — ${tier.label}`];
+      const lines = [`Douze Points — ${state.score.correct} right, ${wrongPins.length} wrong — ${tier.label}`];
       if (correctPins.length) lines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
       if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
       lines.push('', buildShareUrl());
@@ -483,7 +527,7 @@
       if (isTouch) {
         const text = buildShareText();
         if (navigator.share) {
-          try { await navigator.share({ title: 'Where EU?', text }); return; }
+          try { await navigator.share({ title: 'Douze Points', text }); return; }
           catch (e) { /* user cancelled — fall through to clipboard */ }
         }
         try { await navigator.clipboard.writeText(text); showToast(); }
@@ -739,6 +783,11 @@
         if (isDouze) triggerConfetti();
         if (isNul)   triggerHeartRain();
       }, 2000));
+
+      // 2.5. Graham reacts after the slam lands
+      gameOverTimeouts.push(setTimeout(() => {
+        playGrahamForScore(state.score.correct, state.score.total);
+      }, 2500));
 
       // 3. Fade in score, emoji list, share, and Play Again button
       gameOverTimeouts.push(setTimeout(() => {
