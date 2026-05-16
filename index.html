@@ -377,13 +377,26 @@
       const name    = currentName();
       let correct = d3.geoContains(feature, [lon, lat]);
       if (!correct) {
-        const screenArea = pathGen.area(feature);
-        if (screenArea < 2000) {
-          const [sx, sy] = projection([lon, lat]);
-          const [cx, cy] = projection(d3.geoCentroid(feature));
-          const dist = Math.hypot(sx - cx, sy - cy);
-          const radius = Math.min(12, Math.sqrt(2000 / screenArea) * 7.5);
-          if (dist < radius) correct = true;
+        const [px, py] = projection([lon, lat]);
+        // Border leeway: a few pixels around the click count too
+        const LEEWAY = 6;
+        const offsets = [[LEEWAY,0],[-LEEWAY,0],[0,LEEWAY],[0,-LEEWAY],
+                         [LEEWAY,LEEWAY],[-LEEWAY,LEEWAY],[LEEWAY,-LEEWAY],[-LEEWAY,-LEEWAY]];
+        for (const [dx, dy] of offsets) {
+          if (d3.geoContains(feature, projection.invert([px + dx, py + dy]))) {
+            correct = true;
+            break;
+          }
+        }
+        // Extra boost for tiny countries: centroid-distance check
+        if (!correct) {
+          const screenArea = pathGen.area(feature);
+          if (screenArea < 2000) {
+            const [cx, cy] = projection(d3.geoCentroid(feature));
+            const dist = Math.hypot(px - cx, py - cy);
+            const radius = Math.min(12, Math.sqrt(2000 / screenArea) * 7.5);
+            if (dist < radius) correct = true;
+          }
         }
       }
 
