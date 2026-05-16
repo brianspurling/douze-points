@@ -108,7 +108,7 @@
     const countriesGroup = svg.append('g').attr('class', 'countries');
     const pinsGroup      = svg.append('g').attr('class', 'pins');
 
-    let projection, pathGen, allFeatures, europeFeatures;
+    let projection, pathGen, allFeatures, europeFeatures, zoom;
 
     function mapSize() {
       return [window.innerWidth, window.innerHeight - TOPBAR_H];
@@ -164,6 +164,14 @@
           .attr('stroke', LAND_COLOR)
           .attr('stroke-width', 0.5);
 
+      zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on('zoom', (event) => {
+          countriesGroup.attr('transform', event.transform);
+          renderPins();
+        });
+      svg.call(zoom);
+
       startGame();
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
@@ -182,6 +190,7 @@
       current:   null,
       score:     { correct: 0, total: 0 },
       pins:      [],    // { lon, lat, correct, name }
+      pendingClick: null,
       phase:     'idle',
     };
 
@@ -270,9 +279,11 @@
       gameOverTimeouts.forEach(clearTimeout);
       gameOverTimeouts = [];
       document.querySelectorAll('.heart-rain').forEach(el => el.remove());
+      if (zoom) svg.call(zoom.transform, d3.zoomIdentity);
       state.remaining = d3.shuffle([...europeFeatures]);
       state.score     = { correct: 0, total: 0 };
       state.pins      = [];
+      state.pendingClick = null;
       state.phase     = 'idle';
 
       countriesGroup.selectAll('path').attr('fill', LAND_COLOR).attr('stroke', LAND_COLOR);
@@ -303,9 +314,11 @@
 
     // ── Pins ─────────────────────────────────────────────────────────────
     function renderPins() {
+      const t = zoom ? d3.zoomTransform(svg.node()) : d3.zoomIdentity;
       pinsGroup.selectAll('*').remove();
       state.pins.forEach(({ lon, lat, correct, name }) => {
-        const [cx, cy] = projection([lon, lat]);
+        const [px, py] = projection([lon, lat]);
+        const [cx, cy] = t.apply([px, py]);
         const g = pinsGroup.append('g');
         g.append('circle')
           .attr('cx', cx).attr('cy', cy).attr('r', 7)
@@ -316,10 +329,18 @@
           .attr('x', cx).attr('y', cy + 19)
           .text(name);
       });
+      if (state.pendingClick) {
+        const [px, py] = projection([state.pendingClick.lon, state.pendingClick.lat]);
+        const [cx, cy] = t.apply([px, py]);
+        pinsGroup.append('circle')
+          .attr('cx', cx).attr('cy', cy).attr('r', 7)
+          .attr('fill', '#aaa')
+          .attr('stroke', '#fff').attr('stroke-width', 1.5);
+      }
     }
 
     // ── Reveal ───────────────────────────────────────────────────────────
-    function reveal(lon, lat, pendingCircle) {
+    function reveal(lon, lat) {
       const feature = state.current;
       const name    = currentName();
       let correct = d3.geoContains(feature, [lon, lat]);
@@ -338,7 +359,7 @@
         .filter(d => d === feature)
         .attr('fill', correct ? '#4caf50' : '#e53935');
 
-      pendingCircle.remove();
+      state.pendingClick = null;
       state.pins.push({ lon, lat, correct, name });
       renderPins();
 
@@ -361,16 +382,15 @@
       if (state.phase !== 'waiting') return;
 
       const [sx, sy] = d3.pointer(event);
-      const [lon, lat] = projection.invert([sx, sy]);
+      const t = d3.zoomTransform(svg.node());
+      const [mapX, mapY] = t.invert([sx, sy]);
+      const [lon, lat] = projection.invert([mapX, mapY]);
 
       state.phase = 'clicked';
+      state.pendingClick = { lon, lat };
+      renderPins();
 
-      const pending = pinsGroup.append('circle')
-        .attr('cx', sx).attr('cy', sy).attr('r', 7)
-        .attr('fill', '#aaa')
-        .attr('stroke', '#fff').attr('stroke-width', 1.5);
-
-      setTimeout(() => reveal(lon, lat, pending), 750);
+      setTimeout(() => reveal(lon, lat), 750);
     });
 
     // ── Game over ────────────────────────────────────────────────────────
