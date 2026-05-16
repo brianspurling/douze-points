@@ -266,6 +266,11 @@
 
     const LAND_COLOR = '#3a4a6b';
 
+    const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches;
+    const LEEWAY          = IS_TOUCH ? 44 : 12;
+    const TINY_RADIUS_CAP = IS_TOUCH ? 88 : 24;
+    const TINY_RADIUS_MULT= IS_TOUCH ? 55 : 15;
+
     async function init() {
       const topo = await d3.json(
         'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
@@ -699,8 +704,7 @@
       let correct = d3.geoContains(feature, [lon, lat]);
       if (!correct) {
         const [px, py] = projection([lon, lat]);
-        // Border leeway: a few pixels around the click count too
-        const LEEWAY = 6;
+        // Border leeway: clicks within LEEWAY screen pixels of the boundary count too
         const offsets = [[LEEWAY,0],[-LEEWAY,0],[0,LEEWAY],[0,-LEEWAY],
                          [LEEWAY,LEEWAY],[-LEEWAY,LEEWAY],[LEEWAY,-LEEWAY],[-LEEWAY,-LEEWAY]];
         for (const [dx, dy] of offsets) {
@@ -715,7 +719,7 @@
           if (screenArea < 2000) {
             const [cx, cy] = projection(d3.geoCentroid(feature));
             const dist = Math.hypot(px - cx, py - cy);
-            const radius = Math.min(12, Math.sqrt(2000 / screenArea) * 7.5);
+            const radius = Math.min(TINY_RADIUS_CAP, Math.sqrt(2000 / screenArea) * TINY_RADIUS_MULT);
             if (dist < radius) correct = true;
           }
         }
