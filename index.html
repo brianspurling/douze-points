@@ -205,6 +205,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script>
     const TOPBAR_H = 0;
+    const ROUND_COUNT = 25;
 
     // Geographic bounds we want to fill the viewport with.
     const EU_WEST = -11, EU_EAST = 41, EU_SOUTH = 34, EU_NORTH = 71;
@@ -298,13 +299,18 @@
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
         const [c, t] = (p.get('test') || '40/40').split('/').map(Number);
-        const chosen = d3.shuffle([...europeFeatures]).slice(0, t);
+        const cap = Math.min(t, ROUND_COUNT, europeFeatures.length);
+        const cCapped = Math.min(c, cap);
+        const chosen = d3.shuffle([...europeFeatures]).slice(0, cap);
         const pins = chosen.map((feat, idx) => {
           const [lon, lat] = d3.geoCentroid(feat);
-          return { name: feat.properties.name, correct: idx < c, lon, lat };
+          return { name: feat.properties.name, correct: idx < cCapped, lon, lat };
         });
-        state.pins = d3.shuffle(pins);
-        state.score = { correct: c, total: t };
+        state.pool    = chosen;
+        state.status  = new Map(chosen.map((f, i) => [f, i < cCapped ? 'correct' : 'wrong']));
+        state.current = null;
+        state.pins    = d3.shuffle(pins);
+        state.score   = { correct: cCapped, total: cap };
         state.pins.forEach(pin => {
           const feature = europeFeatures.find(f => f.properties.name === pin.name);
           if (feature) {
@@ -324,10 +330,11 @@
     let gameOverTimeouts = [];
     let currentGrahamAudio = null;
     let state = {
-      remaining: [],
+      pool:      [],           // Array<feature> — the 25 sampled countries for this game
+      status:    new Map(),    // Map<feature, 'todo'|'correct'|'wrong'> — current is NOT in here
       current:   null,
       score:     { correct: 0, total: 0 },
-      pins:      [],    // { lon, lat, correct, name }
+      pins:      [],           // { lon, lat, correct, name } — unchanged
       pendingClick: null,
       phase:     'idle',
     };
@@ -463,7 +470,9 @@
       stopGrahamAudio();
       document.querySelectorAll('.heart-rain').forEach(el => el.remove());
       if (zoom) svg.call(zoom.transform, d3.zoomIdentity);
-      state.remaining = d3.shuffle([...europeFeatures]);
+      state.pool      = d3.shuffle([...europeFeatures]).slice(0, Math.min(ROUND_COUNT, europeFeatures.length));
+      state.status    = new Map(state.pool.map(f => [f, 'todo']));
+      state.current   = null;
       state.score     = { correct: 0, total: 0 };
       state.pins      = [];
       state.pendingClick = null;
@@ -477,7 +486,9 @@
     }
 
     function startRound() {
-      state.current = state.remaining.pop();
+      const todo = state.pool.filter(f => state.status.get(f) === 'todo');
+      state.current = todo[Math.floor(Math.random() * todo.length)];
+      state.status.delete(state.current);
       state.phase   = 'waiting';
       const num  = String(state.score.total + 1).padStart(2, '0');
       const name = currentName();
@@ -612,11 +623,18 @@
         renderCountries();
       }
       state.pins = data.p.map(([n, c, x, y]) => ({ name: n, correct: c === 1, lon: x, lat: y }));
+      state.pool   = state.pins
+        .map(pin => europeFeatures.find(f => f.properties.name === pin.name))
+        .filter(Boolean);
+      state.status = new Map(state.pool.map(f => {
+        const pin = state.pins.find(p => p.name === f.properties.name);
+        return [f, pin.correct ? 'correct' : 'wrong'];
+      }));
+      state.current = null;
       state.score = {
         correct: state.pins.filter(p => p.correct).length,
         total:   state.pins.length,
       };
-      state.remaining = [];
       state.phase = 'gameover';
       state.pins.forEach(pin => {
         const feature = europeFeatures.find(f => f.properties.name === pin.name);
@@ -737,6 +755,7 @@
       if (correct) state.score.correct++;
       state.phase = 'revealed';
       updateScore();
+      state.status.set(state.current, correct ? 'correct' : 'wrong');
 
       let nextDelay = 1000;
       if (!correct) {
@@ -754,7 +773,8 @@
       }
 
       setTimeout(() => {
-        if (state.remaining.length === 0) {
+        const remaining = state.pool.filter(f => state.status.get(f) === 'todo');
+        if (remaining.length === 0) {
           showGameOver();
         } else {
           startRound();
