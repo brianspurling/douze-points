@@ -634,6 +634,16 @@
       ],
     };
 
+    const grahamCache = {};
+    for (const bucket of Object.values(GRAHAM_CLIPS)) {
+      for (const path of bucket) {
+        const a = new Audio();
+        a.preload = 'auto';
+        a.src = path;
+        grahamCache[path] = a;
+      }
+    }
+
     function stopGrahamAudio() {
       if (currentGrahamAudio) { currentGrahamAudio.pause(); currentGrahamAudio = null; }
     }
@@ -645,7 +655,8 @@
       const bucket = pct < 41 ? 'brutal' : pct < 63 ? 'backhanded' : 'good';
       const clips = GRAHAM_CLIPS[bucket];
       const path  = clips[Math.floor(Math.random() * clips.length)];
-      const audio = new Audio(path);
+      const audio = grahamCache[path] || new Audio(path);
+      audio.currentTime = 0;
       currentGrahamAudio = audio;
       audio.play().catch(err => {
         if (err.name === 'NotAllowedError') {
