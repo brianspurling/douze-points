@@ -1011,6 +1011,18 @@
       return [bx, by];
     }
 
+    // Great-circle miles from the click coords to the nearest point on the
+    // rendered border of `feature`. Uses the screen-space nearest-border
+    // sampler (good enough for Europe; Mercator distortion is negligible
+    // at the scales involved) and inverts back to lon/lat for the geo math.
+    function milesFromClickToBorder(feature, clickLon, clickLat) {
+      const [px, py] = projection([clickLon, clickLat]);
+      const [bx, by] = nearestBorderPoint(feature, px, py);
+      const [borderLon, borderLat] = projection.invert([bx, by]);
+      const radians = d3.geoDistance([clickLon, clickLat], [borderLon, borderLat]);
+      return Math.round(radians * 3959);
+    }
+
     // ── Reveal ───────────────────────────────────────────────────────────
     function reveal(lon, lat) {
       const feature = state.current;
@@ -1060,8 +1072,10 @@
       state.pins.push({ lon, lat, correct, name });
       renderPins();
 
+      const delta = correct ? 12 : -milesFromClickToBorder(feature, lon, lat);
       state.score.total++;
       if (correct) state.score.correct++;
+      state.score.points += delta;
       state.phase = 'revealed';
       updateScore();
       state.status.set(state.current, correct ? 'correct' : 'wrong');
