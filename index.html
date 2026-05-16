@@ -267,9 +267,9 @@
     const LAND_COLOR = '#3a4a6b';
 
     const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches;
-    const LEEWAY          = IS_TOUCH ? 44 : 12;
-    const TINY_RADIUS_CAP = IS_TOUCH ? 88 : 24;
-    const TINY_RADIUS_MULT= IS_TOUCH ? 55 : 15;
+    const LEEWAY          = IS_TOUCH ? 44 : 8;
+    const TINY_RADIUS_CAP = IS_TOUCH ? 88 : 13;
+    const TINY_RADIUS_MULT= IS_TOUCH ? 55 : 10;
 
     async function init() {
       const topo = await d3.json(
