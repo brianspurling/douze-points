@@ -436,7 +436,8 @@
         state.status  = new Map(chosen.map((f, i) => [f, i < cCapped ? 'correct' : 'wrong']));
         state.current = null;
         state.pins    = d3.shuffle(pins);
-        state.score   = { correct: cCapped, total: cap, points: 0 };
+        state.score   = { correct: cCapped, total: cap, points: pointsFromPins(pins) };
+        updateScore();
         state.pins.forEach(pin => {
           const feature = europeFeatures.find(f => f.properties.name === pin.name);
           if (feature) {
@@ -843,7 +844,7 @@
       state.score = {
         correct: state.pins.filter(p => p.correct).length,
         total:   state.pins.length,
-        points:  0,
+        points:  pointsFromPins(state.pins),
       };
       state.phase = 'gameover';
       state.pins.forEach(pin => {
@@ -1074,6 +1075,19 @@
       const [borderLon, borderLat] = projection.invert([bx, by]);
       const radians = d3.geoDistance([clickLon, clickLat], [borderLon, borderLat]);
       return Math.round(radians * 3959);
+    }
+
+    function pointsFromPins(pins) {
+      let total = 0;
+      for (const pin of pins) {
+        if (pin.correct) {
+          total += 12;
+        } else {
+          const feature = europeFeatures.find(f => f.properties.name === pin.name);
+          if (feature) total -= milesFromClickToBorder(feature, pin.lon, pin.lat);
+        }
+      }
+      return total;
     }
 
     // ── Reveal ───────────────────────────────────────────────────────────
