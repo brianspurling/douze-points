@@ -25,7 +25,7 @@
     .esc-flag { padding: 11px; font-size: 1.7rem; line-height: 1; }
     .esc-name { padding: 11px 22px 11px 5px; }
     #right {
-      position: fixed; top: 14px; right: 20px; z-index: 10;
+      position: fixed; top: 14px; right: 76px; z-index: 10;
       display: flex; align-items: center; gap: 14px;
     }
     #score { font-size: 1rem; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
@@ -37,6 +37,28 @@
     #new-game:hover { background: #c73652; }
     #new-game .ng-icon { display: none; }
     #new-game .ng-text { display: inline; }
+
+    #menu-button {
+      position: fixed; top: 14px; right: 20px; z-index: 11;
+      background: rgba(255,255,255,0.1); border: none; color: #fff;
+      width: 42px; height: 42px; border-radius: 4px; cursor: pointer;
+      font-size: 1.3rem; line-height: 1; padding: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    #menu-button:hover { background: rgba(255,255,255,0.2); }
+    #menu-dropdown {
+      position: fixed; top: 64px; right: 20px; z-index: 11;
+      background: #16213e; border: 1px solid #2a3a5c;
+      border-radius: 6px; padding: 6px 0; min-width: 180px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+    #menu-dropdown.hidden { display: none; }
+    .menu-item {
+      padding: 10px 18px; cursor: pointer;
+      color: #eee; font-size: 1rem; user-select: none;
+    }
+    .menu-item:hover { background: #1f2a4a; }
+    .menu-item.active { color: #f0c040; font-weight: bold; }
 
     @media (max-width: 700px) {
       #prompt { top: auto; bottom: 20px; left: 10px; right: 10px; }
@@ -104,6 +126,11 @@
     <span id="score"></span>
     <button id="new-game" aria-label="New Game"><span class="ng-icon">↻</span><span class="ng-text">New Game</span></button>
   </div>
+  <button id="menu-button" aria-label="Menu">☰</button>
+  <div id="menu-dropdown" class="hidden">
+    <div class="menu-item" data-set="eurovision">Eurovision</div>
+    <div class="menu-item" data-set="europe">Europe</div>
+  </div>
   <div id="overlay" class="hidden">
     <div id="overlay-box">
       <button id="close-overlay" aria-label="Close">×</button>
@@ -133,19 +160,31 @@
       return [window.innerWidth, window.innerHeight - TOPBAR_H];
     }
 
-    const PLAYABLE_NAMES = new Set([
-      'Albania', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herz.', 'Bulgaria',
-      'Croatia', 'Czechia', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany',
-      'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia', 'Lithuania',
-      'Luxembourg', 'Macedonia', 'Moldova', 'Montenegro', 'Netherlands', 'Norway',
-      'Poland', 'Portugal', 'Romania', 'Serbia', 'Slovakia', 'Slovenia', 'Spain',
-      'Sweden', 'Switzerland', 'Ukraine', 'United Kingdom',
-      // Eurovision additions (beyond the visible European map at zoom 1)
-      'Iceland', 'Cyprus', 'Israel', 'Armenia', 'Azerbaijan', 'Georgia', 'Turkey',
-      'Australia',
-    ]);
+    const COUNTRY_SETS = {
+      eurovision: new Set([
+        'Albania', 'Andorra', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
+        'Belarus', 'Belgium', 'Bosnia and Herz.', 'Bulgaria', 'Croatia', 'Cyprus',
+        'Czechia', 'Denmark', 'Estonia', 'Finland', 'France', 'Georgia',
+        'Germany', 'Greece', 'Hungary', 'Iceland', 'Ireland', 'Israel', 'Italy',
+        'Latvia', 'Lithuania', 'Luxembourg', 'Macedonia', 'Malta', 'Moldova',
+        'Monaco', 'Montenegro', 'Netherlands', 'Norway', 'Poland', 'Portugal',
+        'Romania', 'San Marino', 'Serbia', 'Slovakia', 'Slovenia', 'Spain',
+        'Sweden', 'Switzerland', 'Turkey', 'Ukraine', 'United Kingdom',
+      ]),
+      europe: new Set([
+        'Albania', 'Andorra', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herz.',
+        'Bulgaria', 'Croatia', 'Cyprus', 'Czechia', 'Denmark', 'Estonia',
+        'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Iceland',
+        'Ireland', 'Italy', 'Kosovo', 'Latvia', 'Liechtenstein', 'Lithuania',
+        'Luxembourg', 'Macedonia', 'Malta', 'Moldova', 'Monaco', 'Montenegro',
+        'Netherlands', 'Norway', 'Poland', 'Portugal', 'Romania', 'San Marino',
+        'Serbia', 'Slovakia', 'Slovenia', 'Spain', 'Sweden', 'Switzerland',
+        'Ukraine', 'United Kingdom', 'Vatican',
+      ]),
+    };
+    let currentSet = 'eurovision';
     function isPlayable(feature) {
-      return PLAYABLE_NAMES.has(feature.properties.name);
+      return COUNTRY_SETS[currentSet].has(feature.properties.name);
     }
 
     // Compute Mercator scale + translate manually so the lat/lon bbox FILLS [w, h].
@@ -170,7 +209,7 @@
 
     async function init() {
       const topo = await d3.json(
-        'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
+        'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
       );
       allFeatures = topojson.feature(topo, topo.objects.countries).features;
       europeFeatures = allFeatures.filter(isPlayable);
@@ -180,13 +219,7 @@
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
 
-      countriesGroup.selectAll('path')
-        .data(europeFeatures)
-        .join('path')
-          .attr('d', pathGen)
-          .attr('fill', LAND_COLOR)
-          .attr('stroke', LAND_COLOR)
-          .attr('stroke-width', 0.5);
+      renderCountries();
 
       zoom = d3.zoom()
         .scaleExtent([0.1, 8])
@@ -331,6 +364,47 @@
         <span class="esc-name">${name}</span>
       </div>`);
     }
+
+    function renderCountries() {
+      countriesGroup.selectAll('path')
+        .data(europeFeatures)
+        .join('path')
+          .attr('d', pathGen)
+          .attr('fill', LAND_COLOR)
+          .attr('stroke', LAND_COLOR)
+          .attr('stroke-width', 0.5);
+    }
+
+    function setCountrySet(setName) {
+      if (!COUNTRY_SETS[setName] || setName === currentSet) return;
+      currentSet = setName;
+      document.querySelectorAll('.menu-item').forEach(i =>
+        i.classList.toggle('active', i.dataset.set === currentSet));
+      if (allFeatures) {
+        europeFeatures = allFeatures.filter(isPlayable);
+        renderCountries();
+        startGame();
+      }
+    }
+
+    document.getElementById('menu-button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('menu-dropdown').classList.toggle('hidden');
+    });
+    document.querySelectorAll('.menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        setCountrySet(item.dataset.set);
+        document.getElementById('menu-dropdown').classList.add('hidden');
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#menu-button') && !e.target.closest('#menu-dropdown')) {
+        document.getElementById('menu-dropdown').classList.add('hidden');
+      }
+    });
+    // Initial active state
+    document.querySelectorAll('.menu-item').forEach(i =>
+      i.classList.toggle('active', i.dataset.set === currentSet));
 
     document.getElementById('new-game').addEventListener('click', () => {
       if (allFeatures) startGame();
