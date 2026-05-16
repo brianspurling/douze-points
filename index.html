@@ -133,9 +133,19 @@
       return [window.innerWidth, window.innerHeight - TOPBAR_H];
     }
 
-    function isEuropean(feature) {
-      const [lon, lat] = d3.geoCentroid(feature);
-      return lon >= -11 && lon <= 32 && lat >= 35 && lat <= 72;
+    const PLAYABLE_NAMES = new Set([
+      'Albania', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herz.', 'Bulgaria',
+      'Croatia', 'Czechia', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany',
+      'Greece', 'Hungary', 'Ireland', 'Italy', 'Kosovo', 'Latvia', 'Lithuania',
+      'Luxembourg', 'Macedonia', 'Moldova', 'Montenegro', 'Netherlands', 'Norway',
+      'Poland', 'Portugal', 'Romania', 'Serbia', 'Slovakia', 'Slovenia', 'Spain',
+      'Sweden', 'Switzerland', 'Ukraine', 'United Kingdom',
+      // Eurovision additions (beyond the visible European map at zoom 1)
+      'Iceland', 'Cyprus', 'Israel', 'Armenia', 'Azerbaijan', 'Georgia', 'Turkey',
+      'Australia',
+    ]);
+    function isPlayable(feature) {
+      return PLAYABLE_NAMES.has(feature.properties.name);
     }
 
     // Compute Mercator scale + translate manually so the lat/lon bbox FILLS [w, h].
@@ -163,17 +173,12 @@
         'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
       );
       allFeatures = topojson.feature(topo, topo.objects.countries).features;
-      europeFeatures = allFeatures.filter(isEuropean);
+      europeFeatures = allFeatures.filter(isPlayable);
 
       const [w, h] = mapSize();
       svg.attr('width', w).attr('height', h);
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
-
-      svg.append('defs').append('clipPath').attr('id', 'map-clip')
-        .append('rect').attr('id', 'clip-rect').attr('width', w).attr('height', h);
-      countriesGroup.attr('clip-path', 'url(#map-clip)');
-      pinsGroup.attr('clip-path', 'url(#map-clip)');
 
       countriesGroup.selectAll('path')
         .data(europeFeatures)
@@ -230,11 +235,14 @@
     }
 
     const ISO2 = {
-      'Albania': 'AL', 'Andorra': 'AD', 'Austria': 'AT', 'Belarus': 'BY',
+      'Albania': 'AL', 'Andorra': 'AD', 'Armenia': 'AM', 'Australia': 'AU',
+      'Austria': 'AT', 'Azerbaijan': 'AZ', 'Belarus': 'BY',
       'Belgium': 'BE', 'Bosnia and Herz.': 'BA', 'Bulgaria': 'BG',
-      'Croatia': 'HR', 'Czech Rep.': 'CZ', 'Czechia': 'CZ', 'Denmark': 'DK', 'Estonia': 'EE',
-      'Finland': 'FI', 'France': 'FR', 'Germany': 'DE', 'Greece': 'GR',
-      'Hungary': 'HU', 'Iceland': 'IS', 'Ireland': 'IE', 'Italy': 'IT',
+      'Croatia': 'HR', 'Cyprus': 'CY', 'Czech Rep.': 'CZ', 'Czechia': 'CZ',
+      'Denmark': 'DK', 'Estonia': 'EE',
+      'Finland': 'FI', 'France': 'FR', 'Georgia': 'GE', 'Germany': 'DE',
+      'Greece': 'GR', 'Hungary': 'HU', 'Iceland': 'IS', 'Ireland': 'IE',
+      'Israel': 'IL', 'Italy': 'IT',
       'Kosovo': 'XK', 'Latvia': 'LV', 'Liechtenstein': 'LI', 'Lithuania': 'LT',
       'Luxembourg': 'LU', 'Macedonia': 'MK', 'Moldova': 'MD', 'Monaco': 'MC',
       'Montenegro': 'ME', 'Netherlands': 'NL', 'Norway': 'NO', 'Poland': 'PL',
@@ -480,7 +488,6 @@
     window.addEventListener('resize', () => {
       const [w, h] = mapSize();
       svg.attr('width', w).attr('height', h);
-      d3.select('#clip-rect').attr('width', w).attr('height', h);
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
       countriesGroup.selectAll('path').attr('d', pathGen);
