@@ -82,6 +82,17 @@
     }
     .esc-flag { padding: 11px; font-size: 1.7rem; line-height: 1; }
     .esc-name { padding: 11px 22px 11px 5px; }
+    .expand-btn {
+      display: none; /* desktop hides it */
+      position: absolute; left: 8px; top: -22px;
+      background: #7040b0; color: #fff;
+      border: none; border-radius: 4px 4px 0 0;
+      width: 40px; height: 22px;
+      font-size: 1rem; line-height: 1;
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      padding: 0;
+    }
     #right {
       position: fixed; top: 14px; right: 76px; z-index: 10;
       display: flex; align-items: center; gap: 14px;
@@ -118,6 +129,7 @@
     }
     .menu-item:hover { background: #1f2a4a; }
     .menu-item.active { color: #f0c040; font-weight: bold; }
+    .menu-divider { height: 1px; background: #2a3a5c; margin: 4px 0; }
 
     @media (max-width: 700px) {
       #sidebar {
@@ -137,16 +149,38 @@
         border-top: 8px solid #f0c040;
         border-bottom: none;
       }
-      .esc-entry { font-size: 1.5rem; width: 100%; }
+      .esc-entry { font-size: 1.5rem; display: inline-flex; width: auto; }
       .esc-num { padding: 12px 16px; min-width: 62px; }
       .esc-flag { padding: 12px; font-size: 2rem; }
       .esc-name { padding: 12px 22px 12px 5px; flex: 1; }
-      #right { left: 20px; right: auto; flex-direction: row-reverse; gap: 12px; }
-      #score { font-size: 1.1rem; }
-      #new-game { font-size: 1.5rem; padding: 6px 12px; line-height: 1; }
-      #new-game .ng-icon { display: inline; }
-      #new-game .ng-text { display: none; }
+      .expand-btn { display: inline-flex; align-items: center; justify-content: center; }
+      #right { left: auto; right: 70px; gap: 12px; }
+      #score { font-size: 1rem; }
+      #new-game { display: none; } /* moved into hamburger menu on mobile */
       .pin-label { font-size: 13px; }
+      #sidebar.expanded #entries {
+        display: flex; flex-direction: column; gap: 4px;
+        position: fixed; left: 0; top: 50px; bottom: 80px;
+        width: 56px; padding: 8px 6px;
+        background: rgba(15,25,35,0.75);
+        pointer-events: none; /* clicks pass through to map */
+      }
+      #sidebar.expanded .entry { padding: 0; pointer-events: auto; }
+      #sidebar.expanded .entry-name { display: none; } /* flag-only */
+      #sidebar.expanded .entry-flag {
+        width: 44px; height: auto; min-height: 20px;
+        font-size: clamp(14px, 3vw, 20px);
+        flex: 1 1 auto;
+      }
+      .flag-tooltip {
+        position: fixed; z-index: 12;
+        background: #16213e; color: #fff;
+        padding: 4px 10px; border-radius: 4px; font-size: 14px;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        opacity: 0; transition: opacity 0.15s;
+      }
+      .flag-tooltip.show { opacity: 1; }
     }
 
     #map, #map * { cursor: crosshair !important; }
@@ -229,6 +263,8 @@
   <div id="menu-dropdown" class="hidden">
     <div class="menu-item" data-set="eurovision">Eurovision</div>
     <div class="menu-item" data-set="europe">Europe</div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" id="menu-new-game">New Game</div>
   </div>
   <div id="overlay" class="hidden">
     <div id="overlay-box">
@@ -514,6 +550,7 @@
       stopGrahamAudio();
       document.querySelectorAll('.heart-rain').forEach(el => el.remove());
       if (zoom) svg.call(zoom.transform, d3.zoomIdentity);
+      document.getElementById('sidebar').classList.remove('expanded');
       state.pool      = d3.shuffle([...europeFeatures]).slice(0, Math.min(ROUND_COUNT, europeFeatures.length));
       state.status    = new Map(state.pool.map(f => [f, 'todo']));
       state.current   = null;
@@ -538,6 +575,7 @@
       const num  = String(state.score.total + 1).padStart(2, '0');
       const name = currentName();
       setPrompt(`<div class="esc-entry">
+        <button class="expand-btn" aria-label="Toggle list">▲</button>
         <span class="esc-num">${num}</span>
         <span class="esc-flag">${countryFlag(name)}</span>
         <span class="esc-name">${name}</span>
@@ -585,11 +623,23 @@
       e.stopPropagation();
       document.getElementById('menu-dropdown').classList.toggle('hidden');
     });
-    document.querySelectorAll('.menu-item').forEach(item => {
+    document.querySelectorAll('.menu-item[data-set]').forEach(item => {
       item.addEventListener('click', () => {
         setCountrySet(item.dataset.set);
         document.getElementById('menu-dropdown').classList.add('hidden');
       });
+    });
+    document.getElementById('menu-new-game').addEventListener('click', () => {
+      if (allFeatures) startGame();
+      document.getElementById('menu-dropdown').classList.add('hidden');
+    });
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('.expand-btn');
+      if (!btn) return;
+      e.stopPropagation();
+      const sidebar = document.getElementById('sidebar');
+      const expanded = sidebar.classList.toggle('expanded');
+      btn.textContent = expanded ? '▼' : '▲';
     });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#menu-button') && !e.target.closest('#menu-dropdown')) {
@@ -600,6 +650,25 @@
     document.querySelectorAll('.menu-item').forEach(i =>
       i.classList.toggle('active', i.dataset.set === currentSet));
 
+    let flagTooltipEl = null;
+    let flagTooltipTimer = null;
+    document.getElementById('entries').addEventListener('click', (e) => {
+      const entry = e.target.closest('.entry');
+      if (!entry) return;
+      if (!document.getElementById('sidebar').classList.contains('expanded')) return;
+      const rect = entry.getBoundingClientRect();
+      if (!flagTooltipEl) {
+        flagTooltipEl = document.createElement('div');
+        flagTooltipEl.className = 'flag-tooltip';
+        document.body.appendChild(flagTooltipEl);
+      }
+      flagTooltipEl.textContent = entry.dataset.name;
+      flagTooltipEl.style.left = (rect.right + 8) + 'px';
+      flagTooltipEl.style.top  = (rect.top + rect.height / 2 - 14) + 'px';
+      flagTooltipEl.classList.add('show');
+      if (flagTooltipTimer) clearTimeout(flagTooltipTimer);
+      flagTooltipTimer = setTimeout(() => flagTooltipEl.classList.remove('show'), 1500);
+    });
     document.getElementById('new-game').addEventListener('click', () => {
       if (allFeatures) startGame();
     });
