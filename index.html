@@ -294,7 +294,6 @@
         });
       svg.call(zoom);
 
-      startGame();
       if (replayFromHash()) return;
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
@@ -321,7 +320,9 @@
         });
         renderPins();
         showGameOver();
+        return;
       }
+      startGame();
     }
 
     init();
@@ -487,6 +488,7 @@
 
     function startRound() {
       const todo = state.pool.filter(f => state.status.get(f) === 'todo');
+      if (!todo.length) { showGameOver(); return; }
       state.current = todo[Math.floor(Math.random() * todo.length)];
       state.status.delete(state.current);
       state.phase   = 'waiting';
