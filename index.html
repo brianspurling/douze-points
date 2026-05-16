@@ -926,11 +926,31 @@
       }
     }
 
+    // Snap a click that landed outside the polygon to the closest point on
+    // the rendered country border. Uses the SVG path's getPointAtLength to
+    // sample ~1px-spaced points; multi-polygon countries (UK, Greece, Norway)
+    // work for free because the rendered path includes all sub-paths.
+    function nearestBorderPoint(feature, px, py) {
+      const node = countriesGroup.selectAll('path').filter(d => d === feature).node();
+      if (!node) return [px, py];
+      const totalLen = node.getTotalLength();
+      const N = Math.min(2000, Math.max(200, Math.ceil(totalLen)));
+      let bestD2 = Infinity, bx = px, by = py;
+      for (let i = 0; i <= N; i++) {
+        const pt = node.getPointAtLength((i / N) * totalLen);
+        const dx = pt.x - px, dy = pt.y - py;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; bx = pt.x; by = pt.y; }
+      }
+      return [bx, by];
+    }
+
     // ── Reveal ───────────────────────────────────────────────────────────
     function reveal(lon, lat) {
       const feature = state.current;
       const name    = currentName();
-      let correct = d3.geoContains(feature, [lon, lat]);
+      const insidePolygon = d3.geoContains(feature, [lon, lat]);
+      let correct = insidePolygon;
       if (!correct) {
         // LEEWAY/TINY constants are in VISIBLE screen pixels; convert to unzoomed
         // projection-space for the geo math by dividing distances by k (the zoom scale).
@@ -961,6 +981,14 @@
       countriesGroup.selectAll('path')
         .filter(d => d === feature)
         .attr('fill', correct ? '#4caf50' : '#e53935');
+
+      // Correct-via-leeway clicks: snap pin to the closest border point so it
+      // doesn't drift visibly when the player zooms in afterwards.
+      if (correct && !insidePolygon) {
+        const [px, py] = projection([lon, lat]);
+        const [sx, sy] = nearestBorderPoint(feature, px, py);
+        [lon, lat] = projection.invert([sx, sy]);
+      }
 
       state.pendingClick = null;
       state.pins.push({ lon, lat, correct, name });
