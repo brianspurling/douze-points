@@ -84,7 +84,6 @@
     .esc-name { padding: 11px 22px 11px 5px; }
     .expand-btn {
       display: none; /* desktop hides it */
-      position: absolute; left: 8px; top: -22px;
       background: #7040b0; color: #fff;
       border: none; border-radius: 4px 4px 0 0;
       width: 40px; height: 22px;
@@ -138,7 +137,7 @@
         padding: 0; background: transparent;
         overflow: visible;
       }
-      #prompt { margin-bottom: 0; }
+      #prompt { margin-bottom: 0; display: inline-flex; flex-direction: column; align-items: flex-start; }
       #entries { display: none; }
       #joyride {
         top: auto; bottom: 110px; left: 10px; right: 10px;
@@ -149,11 +148,11 @@
         border-top: 8px solid #f0c040;
         border-bottom: none;
       }
-      .esc-entry { position: relative; font-size: 1.5rem; display: inline-flex; width: auto; }
+      .esc-entry { font-size: 1.5rem; display: inline-flex; width: auto; }
       .esc-num { padding: 12px 16px; min-width: 62px; }
       .esc-flag { padding: 12px; font-size: 2rem; }
       .esc-name { padding: 12px 22px 12px 5px; flex: 1; }
-      .expand-btn { display: inline-flex; align-items: center; justify-content: center; }
+      .expand-btn { display: flex; align-items: center; justify-content: center; margin-left: 8px; }
       #right { left: auto; right: 70px; gap: 12px; }
       #score { font-size: 1rem; }
       #new-game { display: none; } /* moved into hamburger menu on mobile */
@@ -290,6 +289,7 @@
 
     const svg            = d3.select('#map');
     const countriesGroup = svg.append('g').attr('class', 'countries');
+    const debugGroup     = countriesGroup.append('g').attr('class', 'debug');
     const pinsGroup      = svg.append('g').attr('class', 'pins');
 
     let projection, pathGen, allFeatures, europeFeatures, zoom;
@@ -349,6 +349,7 @@
     const LEEWAY          = IS_TOUCH ? 44 : 8;
     const TINY_RADIUS_CAP = IS_TOUCH ? 88 : 13;
     const TINY_RADIUS_MULT= IS_TOUCH ? 55 : 10;
+    const DEBUG_HITS = new URLSearchParams(location.search).get('debug') === 'hits';
 
     async function init() {
       const topo = await d3.json(
@@ -369,6 +370,7 @@
         .on('zoom', (event) => {
           countriesGroup.attr('transform', event.transform);
           renderPins();
+          if (DEBUG_HITS) renderDebug();
         });
       svg.call(zoom);
 
@@ -574,14 +576,14 @@
       state.phase   = 'waiting';
       const num  = String(state.score.total + 1).padStart(2, '0');
       const name = currentName();
-      setPrompt(`<div class="esc-entry">
-        <button class="expand-btn" aria-label="Toggle list">▲</button>
+      setPrompt(`<button class="expand-btn" aria-label="Toggle list">▲</button><div class="esc-entry">
         <span class="esc-num">${num}</span>
         <span class="esc-flag">${countryFlag(name)}</span>
         <span class="esc-name">${name}</span>
       </div>`);
       maybeShowJoyride();
       renderSidebar();
+      if (DEBUG_HITS) renderDebug();
     }
 
     const JOYRIDE_KEY = 'douze-points-joyride-seen';
@@ -839,6 +841,50 @@
           .attr('cx', cx).attr('cy', cy).attr('r', 7)
           .attr('fill', '#aaa')
           .attr('stroke', '#fff').attr('stroke-width', 1.5);
+      }
+    }
+
+    // ── Debug overlay (?debug=hits) ──────────────────────────────────────
+    function renderDebug() {
+      debugGroup.selectAll('*').remove();
+      const feature = state.current;
+      if (!feature) return;
+      debugGroup.raise();
+
+      const k = d3.zoomTransform(svg.node()).k;
+      const d = pathGen(feature);
+
+      // Translucent green band: outer half = clickable buffer outside polygon.
+      debugGroup.append('path')
+        .attr('d', d)
+        .attr('fill', 'none')
+        .attr('stroke', 'rgba(76,175,80,0.45)')
+        .attr('stroke-width', LEEWAY * 2)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .style('pointer-events', 'none');
+
+      // Yellow polygon edge so the country boundary is visible.
+      debugGroup.append('path')
+        .attr('d', d)
+        .attr('fill', 'none')
+        .attr('stroke', '#ffeb3b')
+        .attr('stroke-width', 1.5)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .style('pointer-events', 'none');
+
+      // Tiny-country bonus: centroid circle (only when visible area triggers it).
+      const visibleArea = pathGen.area(feature) * k * k;
+      if (visibleArea < 2000) {
+        const radiusVisible = Math.min(TINY_RADIUS_CAP, Math.sqrt(2000 / visibleArea) * TINY_RADIUS_MULT);
+        const [cx, cy] = projection(d3.geoCentroid(feature));
+        debugGroup.append('circle')
+          .attr('cx', cx).attr('cy', cy)
+          .attr('r', radiusVisible / k)
+          .attr('fill', 'rgba(76,175,80,0.2)')
+          .attr('stroke', 'rgba(76,175,80,0.6)')
+          .attr('stroke-width', 1)
+          .attr('vector-effect', 'non-scaling-stroke')
+          .style('pointer-events', 'none');
       }
     }
 
