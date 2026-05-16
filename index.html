@@ -96,7 +96,6 @@
       position: fixed; top: 14px; right: 76px; z-index: 10;
       display: flex; align-items: center; gap: 14px;
     }
-    #score { font-size: 1rem; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
     #new-game {
       background: #e94560; border: none; color: #fff;
       padding: 8px 18px; border-radius: 4px; cursor: pointer; font-size: 0.95rem;
@@ -130,6 +129,45 @@
     .menu-item.active { color: #f0c040; font-weight: bold; }
     .menu-divider { height: 1px; background: #2a3a5c; margin: 4px 0; }
 
+    #scoreboard {
+      position: fixed; top: 64px; right: 20px; z-index: 10;
+      display: flex; align-items: center; border-radius: 5px; overflow: hidden;
+      font-weight: bold; color: #fff; background: #7040b0;
+      font-size: 0.95rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    .sb-label {
+      background: rgba(0,0,0,0.28);
+      padding: 8px 10px;
+      font-size: 0.7rem; letter-spacing: 0.08em; opacity: 0.85;
+    }
+    .sb-value {
+      padding: 8px 14px;
+      font-variant-numeric: tabular-nums;
+      min-width: 56px; text-align: right;
+    }
+    #score-delta {
+      position: fixed; right: 20px; top: 110px; z-index: 10;
+      padding: 5px 12px; border-radius: 5px;
+      font-weight: bold; font-size: 1rem; color: #fff;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+      opacity: 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    #score-delta.positive { background: #4caf50; }
+    #score-delta.negative { background: #e53935; }
+    #score-delta.animate {
+      animation: scoreDeltaIn 1000ms ease-out forwards;
+    }
+    @keyframes scoreDeltaIn {
+      0%   { opacity: 0; transform: translateY(0)   scale(0.4); }
+      30%  { opacity: 1; transform: translateY(-4px) scale(1.15); }
+      45%  { opacity: 1; transform: translateY(-6px) scale(1.0); }
+      80%  { opacity: 1; transform: translateY(-10px) scale(1.0); }
+      100% { opacity: 0; transform: translateY(-12px) scale(0.9); }
+    }
+
     @media (max-width: 700px) {
       #sidebar {
         position: fixed; top: auto; bottom: 20px; left: 10px; right: auto;
@@ -154,8 +192,11 @@
       .esc-name { padding: 12px 22px 12px 5px; flex: 1; }
       .expand-btn { display: flex; align-items: center; justify-content: center; margin-left: 8px; }
       #right { left: auto; right: 70px; gap: 12px; }
-      #score { font-size: 1rem; }
       #new-game { display: none; } /* moved into hamburger menu on mobile */
+      #scoreboard { top: 56px; font-size: 0.85rem; }
+      .sb-label   { padding: 6px 8px; font-size: 0.65rem; }
+      .sb-value   { padding: 6px 10px; min-width: 50px; }
+      #score-delta { top: 96px; font-size: 0.9rem; padding: 4px 10px; }
       .pin-label { font-size: 13px; }
       #sidebar.expanded #entries {
         display: flex; flex-direction: column; gap: 4px;
@@ -255,7 +296,6 @@
     <button class="close" aria-label="Dismiss">×</button>
   </div>
   <div id="right">
-    <span id="score"></span>
     <button id="new-game" aria-label="New Game"><span class="ng-icon">↻</span><span class="ng-text">New Game</span></button>
   </div>
   <button id="menu-button" aria-label="Menu">☰</button>
@@ -265,6 +305,11 @@
     <div class="menu-divider"></div>
     <div class="menu-item" id="menu-new-game">New Game</div>
   </div>
+  <div id="scoreboard" aria-label="Score">
+    <span class="sb-label">POINTS</span>
+    <span class="sb-value">0</span>
+  </div>
+  <div id="score-delta"></div>
   <div id="overlay" class="hidden">
     <div id="overlay-box">
       <button id="close-overlay" aria-label="Close">×</button>
@@ -418,7 +463,7 @@
       pool:      [],           // Array<feature> — the 25 sampled countries for this game
       status:    new Map(),    // Map<feature, 'todo'|'correct'|'wrong'> — current is NOT in here
       current:   null,
-      score:     { correct: 0, total: 0 },
+      score:     { correct: 0, total: 0, points: 0 },
       pins:      [],           // { lon, lat, correct, name } — unchanged
       pendingClick: null,
       phase:     'idle',
@@ -434,10 +479,8 @@
     }
 
     function updateScore() {
-      const el = document.getElementById('score');
-      el.textContent = state.score.total > 0
-        ? `${state.score.correct} / ${state.score.total} correct`
-        : '';
+      const valueEl = document.querySelector('#scoreboard .sb-value');
+      if (valueEl) valueEl.textContent = String(state.score.points);
     }
 
     const ISO2 = {
@@ -559,13 +602,15 @@
       state.pool      = d3.shuffle([...europeFeatures]).slice(0, Math.min(ROUND_COUNT, europeFeatures.length));
       state.status    = new Map(state.pool.map(f => [f, 'todo']));
       state.current   = null;
-      state.score     = { correct: 0, total: 0 };
+      state.score     = { correct: 0, total: 0, points: 0 };
       state.pins      = [];
       state.pendingClick = null;
       state.phase     = 'idle';
 
       countriesGroup.selectAll('path').attr('fill', LAND_COLOR).attr('stroke', LAND_COLOR);
       pinsGroup.selectAll('*').remove();
+      const deltaEl = document.getElementById('score-delta');
+      if (deltaEl) { deltaEl.classList.remove('animate', 'positive', 'negative'); deltaEl.textContent = ''; }
       document.getElementById('overlay').classList.add('hidden');
       updateScore();
       startRound();
