@@ -994,6 +994,32 @@
       }
     }
 
+    function showScoreDelta(delta) {
+      const el = document.getElementById('score-delta');
+      if (!el) return;
+      el.classList.remove('animate', 'positive', 'negative');
+      // Force reflow so re-adding the class restarts the CSS animation.
+      void el.offsetWidth;
+      const sign = delta >= 0 ? '+' : '−'; // U+2212 minus for nicer rendering
+      el.textContent = `${sign}${Math.abs(delta)}`;
+      el.classList.add('animate', delta >= 0 ? 'positive' : 'negative');
+
+      if (delta > 0 && typeof confetti === 'function') {
+        const rect = el.getBoundingClientRect();
+        confetti({
+          particleCount: 24,
+          spread: 50,
+          startVelocity: 22,
+          ticks: 90,
+          origin: {
+            x: (rect.left + rect.width / 2) / window.innerWidth,
+            y: (rect.top  + rect.height / 2) / window.innerHeight,
+          },
+          colors: ['#4caf50', '#ffd600', '#ffffff'],
+        });
+      }
+    }
+
     // Snap a click that landed outside the polygon to the closest point on
     // the rendered country border. Uses the SVG path's getPointAtLength to
     // sample ~1px-spaced points; multi-polygon countries (UK, Greece, Norway)
@@ -1080,6 +1106,7 @@
       state.score.points += delta;
       state.phase = 'revealed';
       updateScore();
+      if (delta !== 0) showScoreDelta(delta);
       state.status.set(state.current, correct ? 'correct' : 'wrong');
       renderSidebar();
 
