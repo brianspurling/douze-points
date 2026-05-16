@@ -436,7 +436,7 @@
         state.status  = new Map(chosen.map((f, i) => [f, i < cCapped ? 'correct' : 'wrong']));
         state.current = null;
         state.pins    = d3.shuffle(pins);
-        state.score   = { correct: cCapped, total: cap };
+        state.score   = { correct: cCapped, total: cap, points: 0 };
         state.pins.forEach(pin => {
           const feature = europeFeatures.find(f => f.properties.name === pin.name);
           if (feature) {
@@ -816,6 +816,7 @@
       state.score = {
         correct: state.pins.filter(p => p.correct).length,
         total:   state.pins.length,
+        points:  0,
       };
       state.phase = 'gameover';
       state.pins.forEach(pin => {
