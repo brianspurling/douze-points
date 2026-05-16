@@ -288,6 +288,7 @@
     const EU_WEST = -11, EU_EAST = 41, EU_SOUTH = 34, EU_NORTH = 71;
 
     const svg            = d3.select('#map');
+    const worldGroup     = svg.append('g').attr('class', 'world');
     const countriesGroup = svg.append('g').attr('class', 'countries');
     const debugGroup     = countriesGroup.append('g').attr('class', 'debug');
     const pinsGroup      = svg.append('g').attr('class', 'pins');
@@ -363,11 +364,13 @@
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
 
+      renderWorld();
       renderCountries();
 
       zoom = d3.zoom()
         .scaleExtent([0.1, 8])
         .on('zoom', (event) => {
+          worldGroup.attr('transform', event.transform);
           countriesGroup.attr('transform', event.transform);
           renderPins();
           if (DEBUG_HITS) renderDebug();
@@ -609,6 +612,20 @@
           .attr('stroke-width', 0.5);
     }
 
+    function renderWorld() {
+      const playable = new Set(europeFeatures);
+      const worldFeatures = allFeatures.filter(f => !playable.has(f));
+      worldGroup.selectAll('path')
+        .data(worldFeatures)
+        .join('path')
+          .attr('d', pathGen)
+          .attr('fill', LAND_COLOR)
+          .attr('stroke', LAND_COLOR)
+          .attr('stroke-width', 0.5)
+          .attr('opacity', 0.2)
+          .style('pointer-events', 'none');
+    }
+
     function setCountrySet(setName) {
       if (!COUNTRY_SETS[setName] || setName === currentSet) return;
       currentSet = setName;
@@ -616,6 +633,7 @@
         i.classList.toggle('active', i.dataset.set === currentSet));
       if (allFeatures) {
         europeFeatures = allFeatures.filter(isPlayable);
+        renderWorld();
         renderCountries();
         startGame();
       }
@@ -737,6 +755,7 @@
         document.querySelectorAll('.menu-item').forEach(i =>
           i.classList.toggle('active', i.dataset.set === currentSet));
         europeFeatures = allFeatures.filter(isPlayable);
+        renderWorld();
         renderCountries();
       }
       state.pins = data.p.map(([n, c, x, y]) => ({ name: n, correct: c === 1, lon: x, lat: y }));
