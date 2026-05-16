@@ -506,8 +506,10 @@
       return [...code].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
     }
 
-    function getEurovisionTier(correct, total) {
-      const pct = total === 0 ? 0 : (correct / total) * 100;
+    const MAX_POINTS = 25 * 12; // 300 — also the divisor for tier %
+    function getEurovisionTier(rawPoints) {
+      const clamped = Math.max(0, rawPoints);
+      const pct = (clamped / MAX_POINTS) * 100;
       if (pct < 20) return { points: 0,  label: 'Nul points',    colour: '#c62828' };
       if (pct < 27) return { points: 1,  label: 'Un point',      colour: '#e65100' };
       if (pct < 34) return { points: 2,  label: 'Deux points',   colour: '#e65100' };
@@ -758,8 +760,8 @@
     function buildShareText() {
       const correctPins = state.pins.filter(p => p.correct);
       const wrongPins   = state.pins.filter(p => !p.correct);
-      const tier = getEurovisionTier(state.score.correct, state.score.total);
-      const lines = [`Douze Points — ${state.score.correct} right, ${wrongPins.length} wrong — ${tier.label}`];
+      const tier = getEurovisionTier(state.score.points);
+      const lines = [`Douze Points — ${state.score.points} (${state.score.correct}/${state.score.total}) — ${tier.label}`];
       if (correctPins.length) lines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
       if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
       lines.push('', buildShareUrl());
@@ -1126,7 +1128,7 @@
       state.phase = 'gameover';
       setPrompt('');
 
-      const tier    = getEurovisionTier(state.score.correct, state.score.total);
+      const tier    = getEurovisionTier(state.score.points);
       const isNul   = tier.points === 0;
       const isDouze = tier.points === 12;
 
@@ -1145,7 +1147,7 @@
       tierEl.style.transform  = 'scale(0.5)';
       tierEl.style.textShadow = '';
 
-      scoreEl.textContent  = `${state.score.correct} / ${state.score.total}`;
+      scoreEl.textContent  = `${state.score.points} (${state.score.correct} / ${state.score.total})`;
       spokesEl.textContent = isNul
         ? 'Oh dear… Europe has voted…'
         : 'Ladies and gentlemen, Europe has voted…';
