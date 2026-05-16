@@ -477,9 +477,32 @@
       document.getElementById('prompt').innerHTML = html;
     }
 
-    function updateScore() {
+    let scoreTweenRAF = 0;
+    let scoreTweenStartTimer = 0;
+    function updateScore(fromValue) {
       const valueEl = document.querySelector('#scoreboard .sb-value');
-      if (valueEl) valueEl.textContent = String(state.score.points);
+      if (!valueEl) return;
+      const target = state.score.points;
+      if (scoreTweenRAF) { cancelAnimationFrame(scoreTweenRAF); scoreTweenRAF = 0; }
+      if (fromValue === undefined || fromValue === target) {
+        valueEl.textContent = String(target);
+        return;
+      }
+      const start = performance.now();
+      const duration = 500;
+      function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 2); // easeOutQuad
+        const val = Math.round(fromValue + (target - fromValue) * eased);
+        valueEl.textContent = String(val);
+        if (t < 1) {
+          scoreTweenRAF = requestAnimationFrame(frame);
+        } else {
+          scoreTweenRAF = 0;
+          valueEl.textContent = String(target);
+        }
+      }
+      scoreTweenRAF = requestAnimationFrame(frame);
     }
 
     const ISO2 = {
@@ -612,6 +635,8 @@
       pinsGroup.selectAll('*').remove();
       const deltaEl = document.getElementById('score-delta');
       if (deltaEl) { deltaEl.classList.remove('animate', 'positive', 'negative'); deltaEl.textContent = ''; }
+      if (scoreTweenRAF) { cancelAnimationFrame(scoreTweenRAF); scoreTweenRAF = 0; }
+      if (scoreTweenStartTimer) { clearTimeout(scoreTweenStartTimer); scoreTweenStartTimer = 0; }
       document.getElementById('overlay').classList.add('hidden');
       updateScore();
       startRound();
@@ -1101,12 +1126,22 @@
       renderPins();
 
       const delta = correct ? 12 : -milesFromClickToBorder(feature, lon, lat);
+      const pointsBefore = state.score.points;
       state.score.total++;
       if (correct) state.score.correct++;
       state.score.points += delta;
       state.phase = 'revealed';
-      updateScore();
-      if (delta !== 0) showScoreDelta(delta);
+      if (delta !== 0) {
+        showScoreDelta(delta);
+        // Let the chip scale in (~300ms) before the running total starts ticking.
+        if (scoreTweenStartTimer) clearTimeout(scoreTweenStartTimer);
+        scoreTweenStartTimer = setTimeout(() => {
+          scoreTweenStartTimer = 0;
+          updateScore(pointsBefore);
+        }, 300);
+      } else {
+        updateScore();
+      }
       state.status.set(state.current, correct ? 'correct' : 'wrong');
       renderSidebar();
 
