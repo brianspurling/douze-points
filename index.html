@@ -13,6 +13,31 @@
     #prompt {
       position: fixed; top: 16px; left: 20px; z-index: 10;
     }
+    #joyride {
+      position: fixed; top: 90px; left: 20px; z-index: 12;
+      background: #f0c040; color: #16213e;
+      padding: 10px 14px; border-radius: 8px; font-weight: bold;
+      font-size: 0.95rem; max-width: 280px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      display: flex; align-items: center; gap: 8px;
+      animation: joyride-bob 1.6s ease-in-out infinite;
+    }
+    #joyride.hidden { display: none; }
+    #joyride::before {
+      content: ''; position: absolute;
+      top: -7px; left: 28px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #f0c040;
+    }
+    #joyride .close {
+      background: transparent; border: none; color: #16213e;
+      font-size: 1.3rem; cursor: pointer; padding: 0 2px; line-height: 1;
+    }
+    @keyframes joyride-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-4px); }
+    }
     .esc-entry {
       display: flex; align-items: center; border-radius: 5px;
       overflow: hidden; font-weight: bold; color: #fff;
@@ -64,6 +89,15 @@
 
     @media (max-width: 700px) {
       #prompt { top: auto; bottom: 20px; left: 10px; right: 10px; }
+      #joyride {
+        top: auto; bottom: 110px; left: 10px; right: 10px;
+        max-width: none;
+      }
+      #joyride::before {
+        top: auto; bottom: -7px; left: 28px;
+        border-top: 8px solid #f0c040;
+        border-bottom: none;
+      }
       .esc-entry { font-size: 1.5rem; width: 100%; }
       .esc-num { padding: 12px 16px; min-width: 62px; }
       .esc-flag { padding: 12px; font-size: 2rem; }
@@ -141,6 +175,10 @@
 <body>
   <svg id="map"></svg>
   <span id="prompt"></span>
+  <div id="joyride" class="hidden">
+    <span>Click where you think this country is!</span>
+    <button class="close" aria-label="Dismiss">×</button>
+  </div>
   <div id="right">
     <span id="score"></span>
     <button id="new-game" aria-label="New Game"><span class="ng-icon">↻</span><span class="ng-text">New Game</span></button>
@@ -443,7 +481,21 @@
         <span class="esc-flag">${countryFlag(name)}</span>
         <span class="esc-name">${name}</span>
       </div>`);
+      maybeShowJoyride();
     }
+
+    const JOYRIDE_KEY = 'douze-points-joyride-seen';
+    function maybeShowJoyride() {
+      try { if (localStorage.getItem(JOYRIDE_KEY)) return; } catch (e) {}
+      document.getElementById('joyride').classList.remove('hidden');
+    }
+    function hideJoyride() {
+      const el = document.getElementById('joyride');
+      if (el.classList.contains('hidden')) return;
+      el.classList.add('hidden');
+      try { localStorage.setItem(JOYRIDE_KEY, '1'); } catch (e) {}
+    }
+    document.querySelector('#joyride .close').addEventListener('click', hideJoyride);
 
     function renderCountries() {
       countriesGroup.selectAll('path')
@@ -709,6 +761,7 @@
     // ── Click handler ────────────────────────────────────────────────────
     svg.on('click', function (event) {
       if (state.phase !== 'waiting') return;
+      hideJoyride();
 
       const [sx, sy] = d3.pointer(event);
       const t = d3.zoomTransform(svg.node());
