@@ -620,9 +620,11 @@
         .join('path')
           .attr('d', pathGen)
           .attr('fill', LAND_COLOR)
-          .attr('stroke', LAND_COLOR)
-          .attr('stroke-width', 0.5)
-          .attr('opacity', 0.2)
+          .attr('fill-opacity', 0.25)
+          .attr('stroke', '#6e84a8')
+          .attr('stroke-width', 0.4)
+          .attr('stroke-opacity', 0.6)
+          .attr('vector-effect', 'non-scaling-stroke')
           .style('pointer-events', 'none');
     }
 

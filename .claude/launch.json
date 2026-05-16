@@ -4,8 +4,9 @@
     {
       "name": "guess-the-country",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3421", "."],
-      "port": 3421
+      "runtimeArgs": ["serve", "."],
+      "port": 3421,
+      "autoPort": true
     }
   ]
 }
