@@ -185,7 +185,7 @@
           countriesGroup.attr('transform', event.transform);
           renderPins();
         });
-      svg.call(zoom);
+      svg.call(zoom).style('cursor', 'crosshair');
 
       startGame();
       const p = new URLSearchParams(location.search);
