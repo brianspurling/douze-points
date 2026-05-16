@@ -13,23 +13,24 @@
     .esc-entry {
       display: flex; align-items: center; border-radius: 5px;
       overflow: hidden; font-weight: bold; color: #fff;
-      background: #7040b0; font-size: 1.4rem;
+      background: #7040b0; font-size: clamp(1.4rem, 5vw, 1.6rem);
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
     }
     .esc-num {
       background: rgba(0,0,0,0.28); padding: 13px 18px;
       font-variant-numeric: tabular-nums; min-width: 64px; text-align: center;
     }
-    .esc-flag { padding: 13px; font-size: 1.9rem; line-height: 1; }
+    .esc-flag { padding: 13px; font-size: clamp(1.9rem, 6.5vw, 2.2rem); line-height: 1; }
     .esc-name { padding: 13px 27px 13px 5px; }
     #right {
       position: fixed; top: 14px; right: 20px; z-index: 10;
       display: flex; align-items: center; gap: 16px;
     }
-    #score { font-size: 0.95rem; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+    #score { font-size: clamp(1rem, 3.5vw, 1.15rem); opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
     #new-game {
       background: #e94560; border: none; color: #fff;
-      padding: 7px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;
+      padding: clamp(8px, 2vw, 11px) clamp(16px, 4vw, 22px);
+      border-radius: 4px; cursor: pointer; font-size: clamp(1rem, 3.5vw, 1.1rem);
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
     #new-game:hover { background: #c73652; }
