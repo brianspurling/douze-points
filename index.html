@@ -683,7 +683,7 @@
       gameOverTimeouts.forEach(clearTimeout);
       gameOverTimeouts = [];
       state.phase = 'gameover';
-      setPrompt('Game over!');
+      setPrompt('');
 
       const tier    = getEurovisionTier(state.score.correct, state.score.total);
       const isNul   = tier.points === 0;
