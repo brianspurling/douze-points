@@ -27,6 +27,24 @@
       display: flex; flex-direction: column; gap: 6px;
       overflow-y: auto;
     }
+    .entry {
+      display: flex; align-items: center; gap: 8px;
+      padding: 2px 4px;
+    }
+    .entry-flag {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 24px; border-radius: 4px;
+      font-size: 18px; line-height: 1;
+      flex: 0 0 auto;
+    }
+    .entry-name {
+      font-size: 14px; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .entry.todo { opacity: 0.4; }
+    .entry.correct .entry-flag { box-shadow: 0 0 0 2px #4caf50; }
+    .entry.wrong   .entry-flag { box-shadow: 0 0 0 2px #e53935; }
+    .entry:hover { filter: brightness(1.2); }
     #joyride {
       position: fixed; top: 90px; left: 20px; z-index: 12;
       background: #f0c040; color: #16213e;
@@ -343,6 +361,7 @@
           }
         });
         renderPins();
+        renderSidebar();
         showGameOver();
         return;
       }
@@ -524,6 +543,7 @@
         <span class="esc-name">${name}</span>
       </div>`);
       maybeShowJoyride();
+      renderSidebar();
     }
 
     const JOYRIDE_KEY = 'douze-points-joyride-seen';
@@ -671,9 +691,33 @@
         }
       });
       renderPins();
+      renderSidebar();
       setPrompt('');
       updateScore();
       return true;
+    }
+
+    // ── Sidebar ──────────────────────────────────────────────────────────
+    function renderSidebar() {
+      const container = document.getElementById('entries');
+      const alphaCompare = (a, b) => a.properties.name.localeCompare(b.properties.name);
+      const todo    = state.pool.filter(f => state.status.get(f) === 'todo').sort(alphaCompare);
+      const correct = state.pool.filter(f => state.status.get(f) === 'correct').sort(alphaCompare);
+      const wrong   = state.pool.filter(f => state.status.get(f) === 'wrong').sort(alphaCompare);
+      const zones = [
+        { features: todo,    klass: 'todo' },
+        { features: correct, klass: 'correct' },
+        { features: wrong,   klass: 'wrong' },
+      ];
+      container.innerHTML = zones.flatMap(({ features, klass }) =>
+        features.map(f => {
+          const name = f.properties.name;
+          return `<div class="entry ${klass}" data-name="${name}">
+        <span class="entry-flag">${countryFlag(name)}</span>
+        <span class="entry-name">${name}</span>
+      </div>`;
+        })
+      ).join('');
     }
 
     // ── Pins ─────────────────────────────────────────────────────────────
@@ -782,6 +826,7 @@
       state.phase = 'revealed';
       updateScore();
       state.status.set(state.current, correct ? 'correct' : 'wrong');
+      renderSidebar();
 
       let nextDelay = 1000;
       if (!correct) {
