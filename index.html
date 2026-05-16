@@ -506,7 +506,7 @@
       return [...code].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
     }
 
-    const MAX_POINTS = 25 * 12; // 300 — also the divisor for tier %
+    const MAX_POINTS = ROUND_COUNT * 12; // also the divisor for tier %
     function getEurovisionTier(rawPoints) {
       const clamped = Math.max(0, rawPoints);
       const pct = (clamped / MAX_POINTS) * 100;
