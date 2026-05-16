@@ -346,9 +346,9 @@
     const LAND_COLOR = '#3a4a6b';
 
     const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches;
-    const LEEWAY          = IS_TOUCH ? 44 : 8;
-    const TINY_RADIUS_CAP = IS_TOUCH ? 88 : 13;
-    const TINY_RADIUS_MULT= IS_TOUCH ? 55 : 10;
+    const LEEWAY          = IS_TOUCH ?  9 : 8;
+    const TINY_RADIUS_CAP = IS_TOUCH ? 18 : 13;
+    const TINY_RADIUS_MULT= IS_TOUCH ? 11 : 10;
     const DEBUG_HITS = new URLSearchParams(location.search).get('debug') === 'hits';
 
     async function init() {
