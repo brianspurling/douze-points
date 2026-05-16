@@ -104,6 +104,19 @@
       padding: 12px 36px; border-radius: 4px; cursor: pointer; font-size: 1rem;
     }
     #play-again:hover { background: #3d8b40; }
+    #share-btn {
+      display: block; margin: 12px auto 0; background: #2a3a5c; border: none;
+      color: #fff; padding: 10px 28px; border-radius: 4px; cursor: pointer;
+      font-size: 0.95rem;
+    }
+    #share-btn:hover { background: #3a4a6c; }
+    #share-toast {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.85); color: #fff; padding: 6px 14px;
+      border-radius: 4px; font-size: 0.85rem; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    #share-toast.show { opacity: 1; }
 
     .pin-label { font-size: 13px; fill: #fff; text-anchor: middle; pointer-events: none; }
     #spokesperson {
@@ -139,6 +152,8 @@
       <div id="final-score"></div>
       <div id="final-label">correct</div>
       <button id="play-again">Play Again</button>
+      <button id="share-btn">Share</button>
+      <div id="share-toast">Copied to clipboard</div>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
@@ -230,6 +245,7 @@
       svg.call(zoom);
 
       startGame();
+      if (replayFromHash()) return;
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
         const [c, t] = (p.get('test') || '40/40').split('/').map(Number);
@@ -417,6 +433,73 @@
       gameOverTimeouts = [];
       document.getElementById('overlay').classList.add('hidden');
     });
+
+    function buildShareText() {
+      const correctPins = state.pins.filter(p => p.correct);
+      const wrongPins   = state.pins.filter(p => !p.correct);
+      const tier = getEurovisionTier(state.score.correct, state.score.total);
+      const lines = [`Where EU? ${state.score.correct} right, ${wrongPins.length} wrong — ${tier.label}`];
+      if (correctPins.length) lines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
+      if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
+      const payload = {
+        s: currentSet,
+        p: state.pins.map(p => [p.name, p.correct ? 1 : 0, +p.lon.toFixed(2), +p.lat.toFixed(2)]),
+      };
+      const url = `${location.origin}${location.pathname}#s=${btoa(JSON.stringify(payload))}`;
+      lines.push('', url);
+      return lines.join('\n');
+    }
+
+    async function shareGame() {
+      const text = buildShareText();
+      if (navigator.share) {
+        try { await navigator.share({ title: 'Where EU?', text }); return; }
+        catch (e) { /* user cancelled — fall through to clipboard */ }
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        const toast = document.getElementById('share-toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      } catch (e) {
+        prompt('Copy this:', text);
+      }
+    }
+    document.getElementById('share-btn').addEventListener('click', shareGame);
+
+    function replayFromHash() {
+      const hash = location.hash;
+      if (!hash.startsWith('#s=')) return false;
+      let data;
+      try { data = JSON.parse(atob(hash.slice(3))); }
+      catch (e) { return false; }
+      if (!data || !Array.isArray(data.p)) return false;
+      if (data.s && COUNTRY_SETS[data.s] && data.s !== currentSet) {
+        currentSet = data.s;
+        document.querySelectorAll('.menu-item').forEach(i =>
+          i.classList.toggle('active', i.dataset.set === currentSet));
+        europeFeatures = allFeatures.filter(isPlayable);
+        renderCountries();
+      }
+      state.pins = data.p.map(([n, c, x, y]) => ({ name: n, correct: c === 1, lon: x, lat: y }));
+      state.score = {
+        correct: state.pins.filter(p => p.correct).length,
+        total:   state.pins.length,
+      };
+      state.remaining = [];
+      state.phase = 'gameover';
+      state.pins.forEach(pin => {
+        const feature = europeFeatures.find(f => f.properties.name === pin.name);
+        if (feature) {
+          countriesGroup.selectAll('path')
+            .filter(d => d === feature)
+            .attr('fill', pin.correct ? '#4caf50' : '#e53935');
+        }
+      });
+      renderPins();
+      showGameOver();
+      return true;
+    }
 
     // ── Pins ─────────────────────────────────────────────────────────────
     function renderPins() {
