@@ -886,24 +886,28 @@
       const name    = currentName();
       let correct = d3.geoContains(feature, [lon, lat]);
       if (!correct) {
+        // LEEWAY/TINY constants are in VISIBLE screen pixels; convert to unzoomed
+        // projection-space for the geo math by dividing distances by k (the zoom scale).
+        const k = d3.zoomTransform(svg.node()).k;
         const [px, py] = projection([lon, lat]);
-        // Border leeway: clicks within LEEWAY screen pixels of the boundary count too
-        const offsets = [[LEEWAY,0],[-LEEWAY,0],[0,LEEWAY],[0,-LEEWAY],
-                         [LEEWAY,LEEWAY],[-LEEWAY,LEEWAY],[LEEWAY,-LEEWAY],[-LEEWAY,-LEEWAY]];
+        // Border leeway: clicks within LEEWAY visible pixels of the boundary count too
+        const lw = LEEWAY / k;
+        const offsets = [[lw,0],[-lw,0],[0,lw],[0,-lw],
+                         [lw,lw],[-lw,lw],[lw,-lw],[-lw,-lw]];
         for (const [dx, dy] of offsets) {
           if (d3.geoContains(feature, projection.invert([px + dx, py + dy]))) {
             correct = true;
             break;
           }
         }
-        // Extra boost for tiny countries: centroid-distance check
+        // Extra boost for tiny countries: centroid-distance check (visible screen space)
         if (!correct) {
-          const screenArea = pathGen.area(feature);
-          if (screenArea < 2000) {
+          const visibleArea = pathGen.area(feature) * k * k;
+          if (visibleArea < 2000) {
             const [cx, cy] = projection(d3.geoCentroid(feature));
-            const dist = Math.hypot(px - cx, py - cy);
-            const radius = Math.min(TINY_RADIUS_CAP, Math.sqrt(2000 / screenArea) * TINY_RADIUS_MULT);
-            if (dist < radius) correct = true;
+            const visibleDist = Math.hypot(px - cx, py - cy) * k;
+            const radius = Math.min(TINY_RADIUS_CAP, Math.sqrt(2000 / visibleArea) * TINY_RADIUS_MULT);
+            if (visibleDist < radius) correct = true;
           }
         }
       }
