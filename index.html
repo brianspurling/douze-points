@@ -51,7 +51,8 @@
       .pin-label { font-size: 13px; }
     }
 
-    #map { display: block; position: fixed; top: 0; left: 0; cursor: crosshair; overflow: hidden; touch-action: none; }
+    #map, #map * { cursor: crosshair !important; }
+    #map { display: block; position: fixed; top: 0; left: 0; overflow: hidden; touch-action: none; }
 
     #overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.72);
