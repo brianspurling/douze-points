@@ -980,12 +980,8 @@
           panToFeature(feature, 800);
           panTime = 850;
         }
-        if (pathGen.area(feature) < 200) {
-          setTimeout(() => pulseFeature(feature), panTime);
-          nextDelay = panTime + 1800;
-        } else {
-          nextDelay = panTime + 1000;
-        }
+        setTimeout(() => pulseFeature(feature), panTime);
+        nextDelay = panTime + 1800;
       }
 
       setTimeout(() => {
