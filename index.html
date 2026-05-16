@@ -12,19 +12,23 @@
 
     #sidebar {
       position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
-      width: 240px; padding: 12px;
-      background: rgba(15,25,35,0.75);
+      width: auto; padding: 0;
       display: flex; flex-direction: column;
       overflow: hidden;
+      pointer-events: none;
     }
+    #sidebar > * { pointer-events: auto; }
     #prompt {
       display: block; flex: 0 0 auto;
-      margin-bottom: 16px;
+      margin: 12px;
     }
     #prompt:empty { display: none; }   /* hide chip slot during game-over */
     #entries {
       flex: 1 1 auto;
+      align-self: flex-start;
       display: flex; flex-direction: column; gap: 3px;
+      padding: 12px;
+      background: rgba(15,25,35,0.75);
       overflow-y: auto;
     }
     .entry {
@@ -39,12 +43,13 @@
     }
     .entry-name {
       font-size: 13px; color: #fff;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .entry.todo { opacity: 0.4; }
     .entry.correct .entry-flag { box-shadow: 0 0 0 2px #4caf50; }
     .entry.wrong   .entry-flag { box-shadow: 0 0 0 2px #e53935; }
-    .entry:hover { filter: brightness(1.2); }
+    .entry:not(.todo) { cursor: pointer; }
+    .entry:not(.todo):hover { filter: brightness(1.2); }
     #joyride {
       position: fixed; top: 90px; left: 20px; z-index: 12;
       background: #f0c040; color: #16213e;
@@ -86,21 +91,26 @@
       display: none; /* desktop hides it */
       background: #7040b0; color: #fff;
       border: none; border-radius: 4px 4px 0 0;
-      width: 40px; height: 22px;
-      font-size: 1rem; line-height: 1;
+      height: 24px;
+      padding: 0 10px;
+      font-size: 0.85rem; font-weight: bold; line-height: 1;
       box-shadow: 0 -2px 6px rgba(0,0,0,0.3);
       cursor: pointer;
-      padding: 0;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
     }
+    .expand-btn .expand-arrow { font-size: 0.9rem; }
     #right {
       position: fixed; top: 14px; right: 76px; z-index: 10;
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; gap: 10px;
     }
     #new-game {
+      display: none;
       background: #e94560; border: none; color: #fff;
       padding: 8px 18px; border-radius: 4px; cursor: pointer; font-size: 0.95rem;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
+    body.game-over #new-game { display: inline-block; }
     #new-game:hover { background: #c73652; }
     #new-game .ng-icon { display: none; }
     #new-game .ng-text { display: inline; }
@@ -122,7 +132,6 @@
     }
     #menu-dropdown.hidden { display: none; }
     #scoreboard {
-      position: fixed; top: 64px; right: 20px; z-index: 10;
       display: flex; align-items: center; border-radius: 5px; overflow: hidden;
       font-weight: bold; color: #fff; background: #7040b0;
       font-size: 0.95rem;
@@ -139,7 +148,7 @@
       min-width: 56px; text-align: right;
     }
     #score-delta {
-      position: fixed; right: 20px; top: 110px; z-index: 10;
+      position: fixed; right: 76px; top: 60px; z-index: 10;
       padding: 5px 12px; border-radius: 5px;
       font-weight: bold; font-size: 1rem; color: #fff;
       font-variant-numeric: tabular-nums;
@@ -165,6 +174,7 @@
     }
     .menu-item:hover { background: #1f2a4a; }
     .menu-item.active { color: #f0c040; font-weight: bold; }
+    .menu-item .menu-icon { display: inline-block; width: 1.4em; opacity: 0.85; }
     .menu-divider { height: 1px; background: #2a3a5c; margin: 4px 0; }
 
     @media (max-width: 700px) {
@@ -190,12 +200,14 @@
       .esc-flag { padding: 12px; font-size: 2rem; }
       .esc-name { padding: 12px 22px 12px 5px; flex: 1; }
       .expand-btn { display: flex; align-items: center; justify-content: center; margin-left: 8px; }
-      #right { left: auto; right: 70px; gap: 12px; }
-      #new-game { display: none; } /* moved into hamburger menu on mobile */
-      #scoreboard { top: 56px; font-size: 0.85rem; }
+      #right { right: 70px; gap: 8px; }
+      body.game-over #new-game .ng-text { display: none; }
+      body.game-over #new-game .ng-icon { display: inline; font-size: 1.1rem; }
+      body.game-over #new-game { padding: 8px 12px; }
+      #scoreboard { font-size: 0.85rem; }
       .sb-label   { padding: 6px 8px; font-size: 0.65rem; }
-      .sb-value   { padding: 6px 10px; min-width: 50px; }
-      #score-delta { top: 96px; font-size: 0.9rem; padding: 4px 10px; }
+      .sb-value   { padding: 6px 10px; min-width: 40px; }
+      #score-delta { top: 52px; right: 70px; font-size: 0.9rem; padding: 4px 10px; }
       .pin-label { font-size: 13px; }
       #sidebar.expanded #entries {
         display: flex; flex-direction: column; gap: 4px;
@@ -263,6 +275,16 @@
       padding: 12px 36px; border-radius: 4px; cursor: pointer; font-size: 1rem;
     }
     #play-again:hover { background: #3d8b40; }
+    #zoom-hint {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.82); color: #fff;
+      padding: 10px 18px; border-radius: 6px;
+      font-size: 0.95rem; font-weight: bold;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      pointer-events: none; opacity: 0; z-index: 15;
+      transition: opacity 0.2s;
+    }
+    #zoom-hint.show { opacity: 1; }
     #share-toast {
       position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.85); color: #fff; padding: 6px 14px;
@@ -296,6 +318,10 @@
     <button class="close" aria-label="Dismiss">×</button>
   </div>
   <div id="right">
+    <div id="scoreboard" aria-label="Score">
+      <span class="sb-label">POINTS</span>
+      <span class="sb-value">0</span>
+    </div>
     <button id="new-game" aria-label="New Game"><span class="ng-icon">↻</span><span class="ng-text">New Game</span></button>
   </div>
   <button id="menu-button" aria-label="Menu">☰</button>
@@ -303,13 +329,10 @@
     <div class="menu-item" data-set="eurovision">Eurovision</div>
     <div class="menu-item" data-set="europe">Europe</div>
     <div class="menu-divider"></div>
-    <div class="menu-item" id="menu-new-game">New Game</div>
-  </div>
-  <div id="scoreboard" aria-label="Score">
-    <span class="sb-label">POINTS</span>
-    <span class="sb-value">0</span>
+    <div class="menu-item" id="menu-new-game"><span class="menu-icon">↻</span>New Game</div>
   </div>
   <div id="score-delta"></div>
+  <div id="zoom-hint">Zoom in to make a guess</div>
   <div id="overlay" class="hidden">
     <div id="overlay-box">
       <button id="close-overlay" aria-label="Close">×</button>
@@ -643,6 +666,7 @@
       if (scoreTweenRAF) { cancelAnimationFrame(scoreTweenRAF); scoreTweenRAF = 0; }
       if (scoreTweenStartTimer) { clearTimeout(scoreTweenStartTimer); scoreTweenStartTimer = 0; }
       document.getElementById('overlay').classList.add('hidden');
+      document.body.classList.remove('game-over');
       updateScore();
       startRound();
     }
@@ -655,7 +679,9 @@
       state.phase   = 'waiting';
       const num  = String(state.score.total + 1).padStart(2, '0');
       const name = currentName();
-      setPrompt(`<button class="expand-btn" aria-label="Toggle list">▲</button><div class="esc-entry">
+      const done  = state.score.total;
+      const total = state.pool.length;
+      setPrompt(`<button class="expand-btn" aria-label="Toggle list"><span class="expand-count">${done} / ${total}</span><span class="expand-arrow">▲</span></button><div class="esc-entry">
         <span class="esc-num">${num}</span>
         <span class="esc-flag">${countryFlag(name)}</span>
         <span class="esc-name">${name}</span>
@@ -737,7 +763,8 @@
       e.stopPropagation();
       const sidebar = document.getElementById('sidebar');
       const expanded = sidebar.classList.toggle('expanded');
-      btn.textContent = expanded ? '▼' : '▲';
+      const arrow = btn.querySelector('.expand-arrow');
+      if (arrow) arrow.textContent = expanded ? '▼' : '▲';
     });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#menu-button') && !e.target.closest('#menu-dropdown')) {
@@ -753,6 +780,12 @@
     document.getElementById('entries').addEventListener('click', (e) => {
       const entry = e.target.closest('.entry');
       if (!entry) return;
+      // Zoom to completed countries (works on both desktop list and mobile expanded flags)
+      if (!entry.classList.contains('todo')) {
+        const name = entry.dataset.name;
+        const feature = europeFeatures.find(f => f.properties.name === name);
+        if (feature) zoomToFeature(feature);
+      }
       if (!document.getElementById('sidebar').classList.contains('expanded')) return;
       const rect = entry.getBoundingClientRect();
       if (!flagTooltipEl) {
@@ -791,7 +824,7 @@
       const correctPins = state.pins.filter(p => p.correct);
       const wrongPins   = state.pins.filter(p => !p.correct);
       const tier = getEurovisionTier(state.score.points);
-      const lines = [`Douze Points — ${state.score.points} (${state.score.correct}/${state.score.total}) — ${tier.label}`];
+      const lines = [`${state.score.points} (${state.score.correct}/${state.score.total}) — ${tier.label}`];
       if (correctPins.length) lines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
       if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
       lines.push('', buildShareUrl());
@@ -808,7 +841,7 @@
       if (isTouch) {
         const text = buildShareText();
         if (navigator.share) {
-          try { await navigator.share({ title: 'Douze Points', text }); return; }
+          try { await navigator.share({ text }); return; }
           catch (e) { /* user cancelled — fall through to clipboard */ }
         }
         try { await navigator.clipboard.writeText(text); showToast(); }
@@ -851,6 +884,7 @@
         points:  pointsFromPins(state.pins),
       };
       state.phase = 'gameover';
+      document.body.classList.add('game-over');
       state.pins.forEach(pin => {
         const feature = europeFeatures.find(f => f.properties.name === pin.name);
         if (feature) {
@@ -1007,6 +1041,19 @@
       );
     }
 
+    function zoomToFeature(feature) {
+      const [w, h] = mapSize();
+      const [[x0, y0], [x1, y1]] = pathGen.bounds(feature);
+      const fw = Math.max(1, x1 - x0), fh = Math.max(1, y1 - y0);
+      // Fit feature into ~45% of viewport so there's surrounding context.
+      const k = Math.max(1, Math.min(8, 0.45 * Math.min(w / fw, h / fh)));
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      svg.transition().duration(700).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(w/2 - k * cx, h/2 - k * cy).scale(k)
+      );
+    }
+
     function pulseFeature(feature) {
       const [lon, lat] = d3.geoCentroid(feature);
       const t = d3.zoomTransform(svg.node());
@@ -1022,6 +1069,15 @@
           .attr('r', 60).attr('opacity', 0)
           .on('end', function() { d3.select(this).remove(); });
       }
+    }
+
+    let zoomHintTimer = 0;
+    function flashZoomHint() {
+      const el = document.getElementById('zoom-hint');
+      if (!el) return;
+      el.classList.add('show');
+      if (zoomHintTimer) clearTimeout(zoomHintTimer);
+      zoomHintTimer = setTimeout(() => el.classList.remove('show'), 1400);
     }
 
     function showScoreDelta(delta) {
@@ -1187,10 +1243,11 @@
     // ── Click handler ────────────────────────────────────────────────────
     svg.on('click', function (event) {
       if (state.phase !== 'waiting') return;
+      const t = d3.zoomTransform(svg.node());
+      if (t.k < 0.55) { flashZoomHint(); return; }
       hideJoyride();
 
       const [sx, sy] = d3.pointer(event);
-      const t = d3.zoomTransform(svg.node());
       const [mapX, mapY] = t.invert([sx, sy]);
       const [lon, lat] = projection.invert([mapX, mapY]);
 
@@ -1206,6 +1263,7 @@
       gameOverTimeouts.forEach(clearTimeout);
       gameOverTimeouts = [];
       state.phase = 'gameover';
+      document.body.classList.add('game-over');
       setPrompt('');
 
       const tier    = getEurovisionTier(state.score.points);
@@ -1283,6 +1341,7 @@
       svg.attr('width', w).attr('height', h);
       projection = buildProjection([w, h]);
       pathGen    = d3.geoPath().projection(projection);
+      worldGroup.selectAll('path').attr('d', pathGen);
       countriesGroup.selectAll('path').attr('d', pathGen);
       renderPins();
     });
