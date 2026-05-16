@@ -769,6 +769,14 @@
     // ── Sidebar ──────────────────────────────────────────────────────────
     function renderSidebar() {
       const container = document.getElementById('entries');
+
+      // FIRST: capture old positions by name
+      const oldRects = new Map();
+      container.querySelectorAll('.entry').forEach(el => {
+        oldRects.set(el.dataset.name, el.getBoundingClientRect());
+      });
+
+      // LAST: render the new layout
       const alphaCompare = (a, b) => a.properties.name.localeCompare(b.properties.name);
       const todo    = state.pool.filter(f => state.status.get(f) === 'todo').sort(alphaCompare);
       const correct = state.pool.filter(f => state.status.get(f) === 'correct').sort(alphaCompare);
@@ -787,6 +795,22 @@
       </div>`;
         })
       ).join('');
+
+      // INVERT + PLAY: for entries that existed before, apply inverse translate then transition back
+      container.querySelectorAll('.entry').forEach(el => {
+        const oldRect = oldRects.get(el.dataset.name);
+        if (!oldRect) return;
+        const newRect = el.getBoundingClientRect();
+        const dx = oldRect.left - newRect.left;
+        const dy = oldRect.top  - newRect.top;
+        if (dx === 0 && dy === 0) return;
+        el.style.transition = 'none';
+        el.style.transform  = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => {
+          el.style.transition = 'transform 300ms ease-out';
+          el.style.transform  = 'translate(0, 0)';
+        });
+      });
     }
 
     // ── Pins ─────────────────────────────────────────────────────────────
