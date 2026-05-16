@@ -436,7 +436,10 @@
         state.status  = new Map(chosen.map((f, i) => [f, i < cCapped ? 'correct' : 'wrong']));
         state.current = null;
         state.pins    = d3.shuffle(pins);
-        state.score   = { correct: cCapped, total: cap, points: pointsFromPins(pins) };
+        // Test mode synthesises pins at centroids, which sit inside polygons —
+        // pointsFromPins would over-penalise. Derive points proportionally so
+        // ?test=N/M maps to the expected tier band (N/M of MAX_POINTS).
+        state.score   = { correct: cCapped, total: cap, points: Math.round((cCapped / cap) * MAX_POINTS) };
         updateScore();
         state.pins.forEach(pin => {
           const feature = europeFeatures.find(f => f.properties.name === pin.name);
@@ -778,7 +781,7 @@
     function buildShareUrl() {
       const payload = {
         s: currentSet,
-        p: state.pins.map(p => [p.name, p.correct ? 1 : 0, +p.lon.toFixed(2), +p.lat.toFixed(2)]),
+        p: state.pins.map(p => [p.name, p.correct ? 1 : 0, +p.lon.toFixed(3), +p.lat.toFixed(3)]),
       };
       return `${location.origin}${location.pathname}#s=${btoa(JSON.stringify(payload))}`;
     }
