@@ -10,8 +10,22 @@
     body { background: #0f1923; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; cursor: crosshair; }
     button { cursor: pointer; }
 
+    #sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
+      width: 240px; padding: 12px;
+      background: rgba(15,25,35,0.75);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
     #prompt {
-      position: fixed; top: 16px; left: 20px; z-index: 10;
+      display: block; flex: 0 0 auto;
+      margin-bottom: 16px;
+    }
+    #prompt:empty { display: none; }   /* hide chip slot during game-over */
+    #entries {
+      flex: 1 1 auto;
+      display: flex; flex-direction: column; gap: 6px;
+      overflow-y: auto;
     }
     #joyride {
       position: fixed; top: 90px; left: 20px; z-index: 12;
@@ -88,7 +102,14 @@
     .menu-item.active { color: #f0c040; font-weight: bold; }
 
     @media (max-width: 700px) {
-      #prompt { top: auto; bottom: 20px; left: 10px; right: 10px; }
+      #sidebar {
+        position: fixed; top: auto; bottom: 20px; left: 10px; right: auto;
+        width: auto; height: auto;
+        padding: 0; background: transparent;
+        overflow: visible;
+      }
+      #prompt { margin-bottom: 0; }
+      #entries { display: none; }
       #joyride {
         top: auto; bottom: 110px; left: 10px; right: 10px;
         max-width: none;
@@ -174,7 +195,10 @@
 </head>
 <body>
   <svg id="map"></svg>
-  <span id="prompt"></span>
+  <aside id="sidebar">
+    <span id="prompt"></span>
+    <div id="entries"></div>
+  </aside>
   <div id="joyride" class="hidden">
     <span>Click where you think this country is!</span>
     <button class="close" aria-label="Dismiss">×</button>
