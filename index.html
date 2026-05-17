@@ -497,10 +497,13 @@
     }
 
     init();
+    preloadGrahamClips();
 
     // ── State ───────────────────────────────────────────────────────────
     let gameOverTimeouts = [];
-    let currentGrahamAudio = null;
+    let audioCtx = null;
+    const grahamBuffers = {};
+    let currentGrahamSource = null;
     let state = {
       pool:      [],           // Array<feature> — the 25 sampled countries for this game
       status:    new Map(),    // Map<feature, 'todo'|'correct'|'wrong'> — current is NOT in here
@@ -634,39 +637,48 @@
       ],
     };
 
-    const grahamCache = {};
-    for (const bucket of Object.values(GRAHAM_CLIPS)) {
-      for (const path of bucket) {
-        const a = new Audio();
-        a.preload = 'auto';
-        a.src = path;
-        grahamCache[path] = a;
+    function preloadGrahamClips() {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return;
+      audioCtx = new Ctor();
+      document.addEventListener('pointerdown', () => {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      }, { once: true, capture: true });
+      for (const bucket of Object.values(GRAHAM_CLIPS)) {
+        for (const path of bucket) {
+          fetch(path)
+            .then(r => r.arrayBuffer())
+            .then(buf => audioCtx.decodeAudioData(buf))
+            .then(decoded => { grahamBuffers[path] = decoded; })
+            .catch(err => console.warn('Graham clip failed to load:', path, err));
+        }
       }
     }
 
     function stopGrahamAudio() {
-      if (currentGrahamAudio) { currentGrahamAudio.pause(); currentGrahamAudio = null; }
+      if (currentGrahamSource) {
+        try { currentGrahamSource.stop(); } catch {}
+        currentGrahamSource = null;
+      }
     }
 
     function playGrahamForScore(correct, total) {
       stopGrahamAudio();
-      if (total === 0) return;
+      if (total === 0 || !audioCtx) return;
       const pct = (correct / total) * 100;
       const bucket = pct < 41 ? 'brutal' : pct < 63 ? 'backhanded' : 'good';
       const clips = GRAHAM_CLIPS[bucket];
       const path  = clips[Math.floor(Math.random() * clips.length)];
-      const audio = grahamCache[path] || new Audio(path);
-      audio.currentTime = 0;
-      currentGrahamAudio = audio;
-      audio.play().catch(err => {
-        if (err.name === 'NotAllowedError') {
-          // Autoplay blocked (e.g. arrived via ?test= URL without interaction).
-          // Retry on first user gesture.
-          document.addEventListener('pointerdown', () => {
-            if (currentGrahamAudio === audio) audio.play().catch(() => {});
-          }, { once: true });
-        }
-      });
+      const buffer = grahamBuffers[path];
+      if (!buffer) return;
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start();
+      currentGrahamSource = source;
+      source.onended = () => {
+        if (currentGrahamSource === source) currentGrahamSource = null;
+      };
     }
 
     // ── Round loop ───────────────────────────────────────────────────────
