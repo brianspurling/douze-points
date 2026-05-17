@@ -141,10 +141,7 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
     }
     #scoreboard { background: #7040b0; }
-    #off-target {
-      position: fixed; top: 100px; right: 76px; z-index: 10;
-      background: #16213e;
-    }
+    #off-target { background: #16213e; }
     #off-target .sb-label { background: rgba(0,0,0,0.35); }
     .sb-label {
       background: rgba(0,0,0,0.28);
@@ -157,25 +154,26 @@
       min-width: 56px; text-align: right;
     }
     #score-delta {
-      position: fixed; right: 76px; z-index: 10;
+      position: fixed; top: 60px; z-index: 10;
       padding: 5px 12px; border-radius: 5px;
       font-weight: bold; font-size: 1rem; color: #fff;
       font-variant-numeric: tabular-nums;
       pointer-events: none;
       opacity: 0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      /* left set by showScoreDelta() to centre on the target counter */
     }
-    #score-delta.positive { top: 60px;  background: #4caf50; }
-    #score-delta.negative { top: 146px; background: #e53935; }
+    #score-delta.positive { background: #4caf50; }
+    #score-delta.negative { background: #e53935; }
     #score-delta.animate {
       animation: scoreDeltaIn 1000ms ease-out forwards;
     }
     @keyframes scoreDeltaIn {
-      0%   { opacity: 0; transform: translateY(0)   scale(0.4); }
-      30%  { opacity: 1; transform: translateY(-4px) scale(1.15); }
-      45%  { opacity: 1; transform: translateY(-6px) scale(1.0); }
-      80%  { opacity: 1; transform: translateY(-10px) scale(1.0); }
-      100% { opacity: 0; transform: translateY(-12px) scale(0.9); }
+      0%   { opacity: 0; transform: translate(-50%, 0)   scale(0.4); }
+      30%  { opacity: 1; transform: translate(-50%, -4px) scale(1.15); }
+      45%  { opacity: 1; transform: translate(-50%, -6px) scale(1.0); }
+      80%  { opacity: 1; transform: translate(-50%, -10px) scale(1.0); }
+      100% { opacity: 0; transform: translate(-50%, -12px) scale(0.9); }
     }
     .menu-item {
       padding: 10px 18px; cursor: pointer;
@@ -214,15 +212,11 @@
       body.game-over #new-game .ng-text { display: none; }
       body.game-over #new-game .ng-icon { display: inline; font-size: 1.1rem; }
       body.game-over #new-game { padding: 8px 12px; }
+      #right { gap: 6px; }
       #scoreboard, #off-target { font-size: 0.85rem; }
-      #off-target { top: 88px; right: 70px; }
-      #scoreboard .sb-label, #off-target .sb-label { padding: 6px 8px; font-size: 0.65rem; }
-      #scoreboard .sb-value, #off-target .sb-value { padding: 6px 10px; min-width: 50px; }
-      .sb-label   { padding: 6px 8px; font-size: 0.65rem; }
-      .sb-value   { padding: 6px 10px; min-width: 40px; }
-      #score-delta { right: 70px; font-size: 0.9rem; padding: 4px 10px; }
-      #score-delta.positive { top: 52px; }
-      #score-delta.negative { top: 128px; }
+      .sb-label { padding: 6px 7px; font-size: 0.6rem; letter-spacing: 0.05em; }
+      .sb-value { padding: 6px 9px; min-width: 32px; }
+      #score-delta { top: 52px; font-size: 0.9rem; padding: 4px 10px; }
       .pin-label { font-size: 13px; }
       #sidebar.expanded #entries {
         display: flex; flex-direction: column; gap: 4px;
@@ -345,15 +339,15 @@
     <button class="close" aria-label="Dismiss">×</button>
   </div>
   <div id="right">
+    <div id="off-target" aria-label="Off target">
+      <span class="sb-label">OFF TARGET</span>
+      <span class="sb-value">0</span>
+    </div>
     <div id="scoreboard" aria-label="Score">
       <span class="sb-label">POINTS</span>
       <span class="sb-value">0</span>
     </div>
     <button id="new-game" aria-label="New Game"><span class="ng-icon">↻</span><span class="ng-text">New Game</span></button>
-  </div>
-  <div id="off-target" aria-label="Off target">
-    <span class="sb-label">OFF TARGET</span>
-    <span class="sb-value">0</span>
   </div>
   <button id="menu-button" aria-label="Menu">☰</button>
   <div id="menu-dropdown" class="hidden">
@@ -1194,6 +1188,12 @@
       const isPositive = delta >= 0;
       el.textContent = isPositive ? `+${delta}` : `${Math.abs(delta)} miles`;
       el.classList.add('animate', isPositive ? 'positive' : 'negative');
+      // Anchor horizontally to the centre of the counter being updated.
+      const targetEl = document.getElementById(isPositive ? 'scoreboard' : 'off-target');
+      if (targetEl) {
+        const r = targetEl.getBoundingClientRect();
+        el.style.left = `${r.left + r.width / 2}px`;
+      }
 
       if (delta > 0 && typeof confetti === 'function') {
         const rect = el.getBoundingClientRect();
