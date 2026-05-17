@@ -134,12 +134,18 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.6);
     }
     #menu-dropdown.hidden { display: none; }
-    #scoreboard {
+    #scoreboard, #off-target {
       display: flex; align-items: center; border-radius: 5px; overflow: hidden;
-      font-weight: bold; color: #fff; background: #7040b0;
+      font-weight: bold; color: #fff;
       font-size: 0.95rem;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
     }
+    #scoreboard { background: #7040b0; }
+    #off-target {
+      position: fixed; top: 100px; right: 76px; z-index: 10;
+      background: #16213e;
+    }
+    #off-target .sb-label { background: rgba(0,0,0,0.35); }
     .sb-label {
       background: rgba(0,0,0,0.28);
       padding: 8px 10px;
@@ -151,7 +157,7 @@
       min-width: 56px; text-align: right;
     }
     #score-delta {
-      position: fixed; right: 76px; top: 60px; z-index: 10;
+      position: fixed; right: 76px; z-index: 10;
       padding: 5px 12px; border-radius: 5px;
       font-weight: bold; font-size: 1rem; color: #fff;
       font-variant-numeric: tabular-nums;
@@ -159,8 +165,8 @@
       opacity: 0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
     }
-    #score-delta.positive { background: #4caf50; }
-    #score-delta.negative { background: #e53935; }
+    #score-delta.positive { top: 60px;  background: #4caf50; }
+    #score-delta.negative { top: 146px; background: #e53935; }
     #score-delta.animate {
       animation: scoreDeltaIn 1000ms ease-out forwards;
     }
@@ -208,10 +214,15 @@
       body.game-over #new-game .ng-text { display: none; }
       body.game-over #new-game .ng-icon { display: inline; font-size: 1.1rem; }
       body.game-over #new-game { padding: 8px 12px; }
-      #scoreboard { font-size: 0.85rem; }
+      #scoreboard, #off-target { font-size: 0.85rem; }
+      #off-target { top: 88px; right: 70px; }
+      #scoreboard .sb-label, #off-target .sb-label { padding: 6px 8px; font-size: 0.65rem; }
+      #scoreboard .sb-value, #off-target .sb-value { padding: 6px 10px; min-width: 50px; }
       .sb-label   { padding: 6px 8px; font-size: 0.65rem; }
       .sb-value   { padding: 6px 10px; min-width: 40px; }
-      #score-delta { top: 52px; right: 70px; font-size: 0.9rem; padding: 4px 10px; }
+      #score-delta { right: 70px; font-size: 0.9rem; padding: 4px 10px; }
+      #score-delta.positive { top: 52px; }
+      #score-delta.negative { top: 128px; }
       .pin-label { font-size: 13px; }
       #sidebar.expanded #entries {
         display: flex; flex-direction: column; gap: 4px;
@@ -263,6 +274,7 @@
     #close-overlay:hover { color: #fff; }
     #final-score { font-size: 2.4rem; font-weight: bold; margin-bottom: 6px; }
     #final-score .final-correct { font-size: 1rem; font-weight: normal; opacity: 0.7; margin-top: 2px; }
+    #final-score .final-miles   { font-size: 0.85rem; font-weight: normal; opacity: 0.55; margin-top: 4px; }
     #emoji-list { margin: 20px auto; max-width: 340px; }
     .emoji-section { margin-bottom: 14px; text-align: center; }
     .emoji-section:last-child { margin-bottom: 0; }
@@ -329,7 +341,7 @@
     <button class="close" aria-label="Dismiss">×</button>
   </div>
   <div id="joyride-score" class="joyride hidden">
-    <span>+12 for a correct guess, or −1 for every mile you're off.</span>
+    <span>+12 for a correct guess. Misses count miles off target.</span>
     <button class="close" aria-label="Dismiss">×</button>
   </div>
   <div id="right">
@@ -338,6 +350,10 @@
       <span class="sb-value">0</span>
     </div>
     <button id="new-game" aria-label="New Game"><span class="ng-icon">↻</span><span class="ng-text">New Game</span></button>
+  </div>
+  <div id="off-target" aria-label="Off target">
+    <span class="sb-label">OFF TARGET</span>
+    <span class="sb-value">0</span>
   </div>
   <button id="menu-button" aria-label="Menu">☰</button>
   <div id="menu-dropdown" class="hidden">
@@ -475,11 +491,15 @@
         state.status  = new Map(chosen.map((f, i) => [f, i < cCapped ? 'correct' : 'wrong']));
         state.current = null;
         state.pins    = d3.shuffle(pins);
-        // Test mode synthesises pins at centroids, which sit inside polygons —
-        // pointsFromPins would over-penalise. Derive points proportionally so
-        // ?test=N/M maps to the expected tier band (N/M of MAX_POINTS).
-        state.score   = { correct: cCapped, total: cap, points: Math.round((cCapped / cap) * MAX_POINTS) };
+        // Test mode synthesises pins at centroids; points come straight from the
+        // correct count (cCapped * 12), and milesOff is reconstructed from the
+        // centroid-to-border distances of the synthetic "wrong" pins. The miles
+        // total is inflated (centroids are deep inside countries) but lets the
+        // display be exercised.
+        const testScore = scoreFromPins(pins);
+        state.score   = { correct: cCapped, total: cap, points: cCapped * 12, milesOff: testScore.milesOff };
         updateScore();
+        updateMilesOff();
         state.pins.forEach(pin => {
           const feature = europeFeatures.find(f => f.properties.name === pin.name);
           if (feature) {
@@ -508,7 +528,7 @@
       pool:      [],           // Array<feature> — the 25 sampled countries for this game
       status:    new Map(),    // Map<feature, 'todo'|'correct'|'wrong'> — current is NOT in here
       current:   null,
-      score:     { correct: 0, total: 0, points: 0 },
+      score:     { correct: 0, total: 0, points: 0, milesOff: 0 },
       pins:      [],           // { lon, lat, correct, name } — unchanged
       pendingClick: null,
       phase:     'idle',
@@ -525,6 +545,8 @@
 
     let scoreTweenRAF = 0;
     let scoreTweenStartTimer = 0;
+    let milesTweenRAF = 0;
+    let milesTweenStartTimer = 0;
     function updateScore(fromValue) {
       const valueEl = document.querySelector('#scoreboard .sb-value');
       if (!valueEl) return;
@@ -549,6 +571,32 @@
         }
       }
       scoreTweenRAF = requestAnimationFrame(frame);
+    }
+
+    function updateMilesOff(fromValue) {
+      const valueEl = document.querySelector('#off-target .sb-value');
+      if (!valueEl) return;
+      const target = state.score.milesOff;
+      if (milesTweenRAF) { cancelAnimationFrame(milesTweenRAF); milesTweenRAF = 0; }
+      if (fromValue === undefined || fromValue === target) {
+        valueEl.textContent = String(target);
+        return;
+      }
+      const start = performance.now();
+      const duration = 500;
+      function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 2);
+        const val = Math.round(fromValue + (target - fromValue) * eased);
+        valueEl.textContent = String(val);
+        if (t < 1) {
+          milesTweenRAF = requestAnimationFrame(frame);
+        } else {
+          milesTweenRAF = 0;
+          valueEl.textContent = String(target);
+        }
+      }
+      milesTweenRAF = requestAnimationFrame(frame);
     }
 
     const ISO2 = {
@@ -692,7 +740,7 @@
       state.pool      = d3.shuffle([...europeFeatures]).slice(0, Math.min(ROUND_COUNT, europeFeatures.length));
       state.status    = new Map(state.pool.map(f => [f, 'todo']));
       state.current   = null;
-      state.score     = { correct: 0, total: 0, points: 0 };
+      state.score     = { correct: 0, total: 0, points: 0, milesOff: 0 };
       state.pins      = [];
       state.pendingClick = null;
       state.phase     = 'idle';
@@ -703,10 +751,13 @@
       if (deltaEl) { deltaEl.classList.remove('animate', 'positive', 'negative'); deltaEl.textContent = ''; }
       if (scoreTweenRAF) { cancelAnimationFrame(scoreTweenRAF); scoreTweenRAF = 0; }
       if (scoreTweenStartTimer) { clearTimeout(scoreTweenStartTimer); scoreTweenStartTimer = 0; }
+      if (milesTweenRAF) { cancelAnimationFrame(milesTweenRAF); milesTweenRAF = 0; }
+      if (milesTweenStartTimer) { clearTimeout(milesTweenStartTimer); milesTweenStartTimer = 0; }
       document.getElementById('overlay').classList.add('hidden');
       document.getElementById('joyride-score').classList.add('hidden');
       document.body.classList.remove('game-over');
       updateScore();
+      updateMilesOff();
       startRound();
     }
 
@@ -929,10 +980,12 @@
         return [f, pin.correct ? 'correct' : 'wrong'];
       }));
       state.current = null;
+      const replayScore = scoreFromPins(state.pins);
       state.score = {
         correct: state.pins.filter(p => p.correct).length,
         total:   state.pins.length,
-        points:  pointsFromPins(state.pins),
+        points:  replayScore.points,
+        milesOff: replayScore.milesOff,
       };
       state.phase = 'gameover';
       document.body.classList.add('game-over');
@@ -948,6 +1001,7 @@
       renderSidebar();
       setPrompt('');
       updateScore();
+      updateMilesOff();
       return true;
     }
 
@@ -1137,9 +1191,9 @@
       el.classList.remove('animate', 'positive', 'negative');
       // Force reflow so re-adding the class restarts the CSS animation.
       void el.offsetWidth;
-      const sign = delta >= 0 ? '+' : '−'; // U+2212 minus for nicer rendering
-      el.textContent = `${sign}${Math.abs(delta)}${delta < 0 ? ' miles' : ''}`;
-      el.classList.add('animate', delta >= 0 ? 'positive' : 'negative');
+      const isPositive = delta >= 0;
+      el.textContent = isPositive ? `+${delta}` : `${Math.abs(delta)} miles`;
+      el.classList.add('animate', isPositive ? 'positive' : 'negative');
 
       if (delta > 0 && typeof confetti === 'function') {
         const rect = el.getBoundingClientRect();
@@ -1188,17 +1242,18 @@
       return Math.round(radians * 3959);
     }
 
-    function pointsFromPins(pins) {
-      let total = 0;
+    function scoreFromPins(pins) {
+      let points = 0;
+      let milesOff = 0;
       for (const pin of pins) {
         if (pin.correct) {
-          total += 12;
+          points += 12;
         } else {
           const feature = europeFeatures.find(f => f.properties.name === pin.name);
-          if (feature) total -= milesFromClickToBorder(feature, pin.lon, pin.lat);
+          if (feature) milesOff += milesFromClickToBorder(feature, pin.lon, pin.lat);
         }
       }
-      return total;
+      return { points, milesOff };
     }
 
     // ── Reveal ───────────────────────────────────────────────────────────
@@ -1250,23 +1305,37 @@
       state.pins.push({ lon, lat, correct, name });
       renderPins();
 
-      const delta = correct ? 12 : -milesFromClickToBorder(feature, lon, lat);
+      const milesOff = correct ? 0 : milesFromClickToBorder(feature, lon, lat);
       const pointsBefore = state.score.points;
+      const milesBefore  = state.score.milesOff;
       state.score.total++;
-      if (correct) state.score.correct++;
-      state.score.points += delta;
+      if (correct) {
+        state.score.correct++;
+        state.score.points += 12;
+      } else {
+        state.score.milesOff += milesOff;
+      }
       state.phase = 'revealed';
       if (state.score.total === 1) maybeShowScoreJoyride();
-      if (delta !== 0) {
-        showScoreDelta(delta);
+      if (correct) {
+        showScoreDelta(12);
         // Let the chip scale in (~300ms) before the running total starts ticking.
         if (scoreTweenStartTimer) clearTimeout(scoreTweenStartTimer);
         scoreTweenStartTimer = setTimeout(() => {
           scoreTweenStartTimer = 0;
           updateScore(pointsBefore);
         }, 300);
+      } else if (milesOff > 0) {
+        showScoreDelta(-milesOff); // negative sign drives the red "miles off" chip
+        if (milesTweenStartTimer) clearTimeout(milesTweenStartTimer);
+        milesTweenStartTimer = setTimeout(() => {
+          milesTweenStartTimer = 0;
+          updateMilesOff(milesBefore);
+        }, 300);
       } else {
+        // Wrong guess but rounded to 0 miles (click extremely close to border).
         updateScore();
+        updateMilesOff();
       }
       state.status.set(state.current, correct ? 'correct' : 'wrong');
       renderSidebar();
@@ -1337,7 +1406,8 @@
       tierEl.style.transform  = 'scale(0.5)';
       tierEl.style.textShadow = '';
 
-      scoreEl.innerHTML    = `${state.score.points}<div class="final-correct">(${state.score.correct} / ${state.score.total})</div>`;
+      scoreEl.innerHTML    = `${state.score.points}<div class="final-correct">(${state.score.correct} / ${state.score.total})</div>` +
+        (state.score.milesOff > 0 ? `<div class="final-miles">${state.score.milesOff} miles off target</div>` : '');
       spokesEl.textContent = isNul
         ? 'Oh dear… Europe has voted…'
         : 'Ladies and gentlemen, Europe has voted…';
