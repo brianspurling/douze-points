@@ -1186,7 +1186,7 @@
       // Force reflow so re-adding the class restarts the CSS animation.
       void el.offsetWidth;
       const isPositive = delta >= 0;
-      el.textContent = isPositive ? `+${delta}` : `${Math.abs(delta)} miles`;
+      el.textContent = isPositive ? `+${delta}` : `👎 ${Math.abs(delta)} miles`;
       el.classList.add('animate', isPositive ? 'positive' : 'negative');
       // Anchor horizontally to the centre of the counter being updated.
       const targetEl = document.getElementById(isPositive ? 'scoreboard' : 'off-target');
