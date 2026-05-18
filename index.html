@@ -385,6 +385,22 @@
 
     let projection, pathGen, allFeatures, playableFeatures, zoom;
 
+    const SOURCES = {
+      world: {
+        url: 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json',
+        objectKey: 'countries',
+      },
+    };
+    const topoCache = {};
+    async function loadSource(key) {
+      if (topoCache[key]) return topoCache[key];
+      const def = SOURCES[key];
+      const topo = await d3.json(def.url);
+      const features = topojson.feature(topo, topo.objects[def.objectKey]).features;
+      topoCache[key] = features;
+      return features;
+    }
+
     function mapSize() {
       return [window.innerWidth, window.innerHeight - TOPBAR_H];
     }
@@ -455,10 +471,7 @@
     const DEBUG_HITS = new URLSearchParams(location.search).get('debug') === 'hits';
 
     async function init() {
-      const topo = await d3.json(
-        'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
-      );
-      allFeatures = topojson.feature(topo, topo.objects.countries).features;
+      allFeatures = await loadSource(currentRegion().source);
       playableFeatures = allFeatures.filter(isPlayable);
 
       const [w, h] = mapSize();
@@ -479,7 +492,7 @@
         });
       svg.call(zoom);
 
-      if (replayFromHash()) return;
+      if (await replayFromHash()) return;
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
         const [c, t] = (p.get('test') || '40/40').split('/').map(Number);
@@ -839,15 +852,14 @@
       currentSet = regionKey;
       document.querySelectorAll('.menu-item').forEach(i =>
         i.classList.toggle('active', i.dataset.region === currentSet));
-      if (allFeatures) {
-        playableFeatures = allFeatures.filter(isPlayable);
-        projection = buildProjection(mapSize(), currentRegion().bbox);
-        pathGen    = d3.geoPath().projection(projection);
-        svg.call(zoom.transform, d3.zoomIdentity);
-        renderWorld();
-        renderCountries();
-        startGame();
-      }
+      allFeatures = await loadSource(currentRegion().source);
+      playableFeatures = allFeatures.filter(isPlayable);
+      projection = buildProjection(mapSize(), currentRegion().bbox);
+      pathGen    = d3.geoPath().projection(projection);
+      svg.call(zoom.transform, d3.zoomIdentity);
+      renderWorld();
+      renderCountries();
+      startGame();
     }
 
     document.getElementById('menu-button').addEventListener('click', (e) => {
@@ -961,7 +973,7 @@
     }
     document.getElementById('share-btn').addEventListener('click', shareGame);
 
-    function replayFromHash() {
+    async function replayFromHash() {
       const hash = location.hash;
       if (!hash.startsWith('#s=')) return false;
       let data;
@@ -972,6 +984,7 @@
         currentSet = data.s;
         document.querySelectorAll('.menu-item').forEach(i =>
           i.classList.toggle('active', i.dataset.region === currentSet));
+        allFeatures = await loadSource(currentRegion().source);
         playableFeatures = allFeatures.filter(isPlayable);
         projection = buildProjection(mapSize(), currentRegion().bbox);
         pathGen    = d3.geoPath().projection(projection);
