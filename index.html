@@ -758,8 +758,7 @@
     function startRound() {
       const todo = state.pool.filter(f => state.status.get(f) === 'todo');
       if (!todo.length) { showGameOver(); return; }
-      state.current = todo[Math.floor(Math.random() * todo.length)];
-      state.status.delete(state.current);
+      state.current = todo[0];
       state.phase   = 'waiting';
       const num  = String(state.score.total + 1).padStart(2, '0');
       const name = currentName();
@@ -1011,7 +1010,7 @@
 
       // LAST: render the new layout
       const alphaCompare = (a, b) => a.properties.name.localeCompare(b.properties.name);
-      const todo    = state.pool.filter(f => state.status.get(f) === 'todo').sort(alphaCompare);
+      const todo    = state.pool.filter(f => state.status.get(f) === 'todo');
       const correct = state.pool.filter(f => state.status.get(f) === 'correct').sort(alphaCompare);
       const wrong   = state.pool.filter(f => state.status.get(f) === 'wrong').sort(alphaCompare);
       const zones = [
