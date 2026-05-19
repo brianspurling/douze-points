@@ -41,6 +41,14 @@
       font-size: 15px; line-height: 1;
       flex: 0 0 auto;
     }
+    .flag-img {
+      display: block;
+      border-radius: 3px;
+      object-fit: cover;
+    }
+    .entry-flag .flag-img  { width: 100%; height: 100%; }
+    .esc-flag .flag-img    { height: 1em; width: auto; }
+    .emoji-flags .flag-img { height: 1em; width: auto; vertical-align: middle; display: inline-block; }
     .entry-name {
       font-size: 13px; color: #fff;
       white-space: nowrap;
@@ -351,8 +359,9 @@
   </div>
   <button id="menu-button" aria-label="Menu">☰</button>
   <div id="menu-dropdown" class="hidden">
-    <div class="menu-item" data-set="eurovision">Eurovision</div>
-    <div class="menu-item" data-set="europe">Europe</div>
+    <div class="menu-item" data-region="eurovision">Eurovision</div>
+    <div class="menu-item" data-region="europe">Europe</div>
+    <div class="menu-item" data-region="usa">USA</div>
     <div class="menu-divider"></div>
     <div class="menu-item" id="menu-new-game"><span class="menu-icon">↻</span>New Game</div>
   </div>
@@ -377,60 +386,105 @@
     const TOPBAR_H = 0;
     const ROUND_COUNT = 25;
 
-    // Geographic bounds we want to fill the viewport with.
-    const EU_WEST = -11, EU_EAST = 41, EU_SOUTH = 34, EU_NORTH = 71;
-
     const svg            = d3.select('#map');
     const worldGroup     = svg.append('g').attr('class', 'world');
     const countriesGroup = svg.append('g').attr('class', 'countries');
     const debugGroup     = countriesGroup.append('g').attr('class', 'debug');
     const pinsGroup      = svg.append('g').attr('class', 'pins');
 
-    let projection, pathGen, allFeatures, europeFeatures, zoom;
+    let projection, pathGen, allFeatures, playableFeatures, zoom;
+
+    const SOURCES = {
+      world: {
+        url: 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json',
+        objectKey: 'countries',
+      },
+      us: {
+        url: 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json',
+        objectKey: 'states',
+      },
+    };
+    const topoCache = {};
+    async function loadSource(key) {
+      if (topoCache[key]) return topoCache[key];
+      const def = SOURCES[key];
+      const topo = await d3.json(def.url);
+      const features = topojson.feature(topo, topo.objects[def.objectKey]).features;
+      topoCache[key] = features;
+      return features;
+    }
 
     function mapSize() {
       return [window.innerWidth, window.innerHeight - TOPBAR_H];
     }
 
-    const COUNTRY_SETS = {
-      eurovision: new Set([
-        'Albania', 'Andorra', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
-        'Belarus', 'Belgium', 'Bosnia and Herz.', 'Bulgaria', 'Croatia', 'Cyprus',
-        'Czechia', 'Denmark', 'Estonia', 'Finland', 'France', 'Georgia',
-        'Germany', 'Greece', 'Hungary', 'Iceland', 'Ireland', 'Israel', 'Italy',
-        'Latvia', 'Lithuania', 'Luxembourg', 'Macedonia', 'Malta', 'Moldova',
-        'Monaco', 'Montenegro', 'Netherlands', 'Norway', 'Poland', 'Portugal',
-        'Romania', 'San Marino', 'Serbia', 'Slovakia', 'Slovenia', 'Spain',
-        'Sweden', 'Switzerland', 'Turkey', 'Ukraine', 'United Kingdom',
-      ]),
-      europe: new Set([
-        'Albania', 'Andorra', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herz.',
-        'Bulgaria', 'Croatia', 'Cyprus', 'Czechia', 'Denmark', 'Estonia',
-        'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Iceland',
-        'Ireland', 'Italy', 'Kosovo', 'Latvia', 'Liechtenstein', 'Lithuania',
-        'Luxembourg', 'Macedonia', 'Malta', 'Moldova', 'Monaco', 'Montenegro',
-        'Netherlands', 'Norway', 'Poland', 'Portugal', 'Romania', 'San Marino',
-        'Serbia', 'Slovakia', 'Slovenia', 'Spain', 'Sweden', 'Switzerland',
-        'Ukraine', 'United Kingdom', 'Vatican',
-      ]),
+    // Region descriptors. `source` selects the topojson dataset; `bbox` is
+    // [west, east, south, north] in degrees; `set` is the playable-name set.
+    const REGIONS = {
+      eurovision: {
+        source: 'world',
+        bbox: [-11, 41, 34, 71],
+        set: new Set([
+          'Albania', 'Andorra', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
+          'Belarus', 'Belgium', 'Bosnia and Herz.', 'Bulgaria', 'Croatia', 'Cyprus',
+          'Czechia', 'Denmark', 'Estonia', 'Finland', 'France', 'Georgia',
+          'Germany', 'Greece', 'Hungary', 'Iceland', 'Ireland', 'Israel', 'Italy',
+          'Latvia', 'Lithuania', 'Luxembourg', 'Macedonia', 'Malta', 'Moldova',
+          'Monaco', 'Montenegro', 'Netherlands', 'Norway', 'Poland', 'Portugal',
+          'Romania', 'San Marino', 'Serbia', 'Slovakia', 'Slovenia', 'Spain',
+          'Sweden', 'Switzerland', 'Turkey', 'Ukraine', 'United Kingdom',
+        ]),
+      },
+      europe: {
+        source: 'world',
+        bbox: [-11, 41, 34, 71],
+        set: new Set([
+          'Albania', 'Andorra', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herz.',
+          'Bulgaria', 'Croatia', 'Cyprus', 'Czechia', 'Denmark', 'Estonia',
+          'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Iceland',
+          'Ireland', 'Italy', 'Kosovo', 'Latvia', 'Liechtenstein', 'Lithuania',
+          'Luxembourg', 'Macedonia', 'Malta', 'Moldova', 'Monaco', 'Montenegro',
+          'Netherlands', 'Norway', 'Poland', 'Portugal', 'Romania', 'San Marino',
+          'Serbia', 'Slovakia', 'Slovenia', 'Spain', 'Sweden', 'Switzerland',
+          'Ukraine', 'United Kingdom', 'Vatican',
+        ]),
+      },
+      usa: {
+        source: 'us',
+        bbox: [-125, -66, 24, 50],
+        set: new Set([
+          'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
+          'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho',
+          'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana',
+          'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
+          'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada',
+          'New Hampshire', 'New Jersey', 'New Mexico', 'New York',
+          'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon',
+          'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+          'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
+          'West Virginia', 'Wisconsin', 'Wyoming',
+        ]),
+      },
     };
     let currentSet = 'eurovision';
+    function currentRegion() { return REGIONS[currentSet]; }
     function isPlayable(feature) {
-      return COUNTRY_SETS[currentSet].has(feature.properties.name);
+      return currentRegion().set.has(feature.properties.name);
     }
 
     // Compute Mercator scale + translate manually so the lat/lon bbox FILLS [w, h].
     // d3.geoPath.bounds curves great-circle edges and gives wildly wrong results
     // for fitSize on a polygon bbox, so we do the math directly here.
-    function buildProjection([w, h]) {
+    function buildProjection([w, h], bbox) {
+      const [west, east, south, north] = bbox;
       const mercY = lat => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
-      const lonSpan = (EU_EAST - EU_WEST) * Math.PI / 180; // radians
-      const latSpan = mercY(EU_NORTH) - mercY(EU_SOUTH);   // mercator units
-      // Scale so the bbox FITS inside the viewport — no part of Europe is cropped.
+      const lonSpan = (east - west) * Math.PI / 180; // radians
+      const latSpan = mercY(north) - mercY(south);   // mercator units
+      // Scale so the bbox FITS inside the viewport — no part of the region is cropped.
       // On wide screens this leaves dark background on the sides; on tall screens, top/bottom.
       const scale = Math.min(w / lonSpan, h / latSpan);
-      const centerLon = (EU_WEST + EU_EAST) / 2;
-      const centerLat = (EU_NORTH + EU_SOUTH) / 2;
+      const centerLon = (west + east) / 2;
+      const centerLat = (south + north) / 2;
       return d3.geoMercator()
         .scale(scale)
         .center([centerLon, centerLat])
@@ -446,15 +500,12 @@
     const DEBUG_HITS = new URLSearchParams(location.search).get('debug') === 'hits';
 
     async function init() {
-      const topo = await d3.json(
-        'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
-      );
-      allFeatures = topojson.feature(topo, topo.objects.countries).features;
-      europeFeatures = allFeatures.filter(isPlayable);
+      allFeatures = await loadSource(currentRegion().source);
+      playableFeatures = allFeatures.filter(isPlayable);
 
       const [w, h] = mapSize();
       svg.attr('width', w).attr('height', h);
-      projection = buildProjection([w, h]);
+      projection = buildProjection([w, h], currentRegion().bbox);
       pathGen    = d3.geoPath().projection(projection);
 
       renderWorld();
@@ -470,13 +521,13 @@
         });
       svg.call(zoom);
 
-      if (replayFromHash()) return;
+      if (await replayFromHash()) return;
       const p = new URLSearchParams(location.search);
       if (p.has('test')) {
         const [c, t] = (p.get('test') || '40/40').split('/').map(Number);
-        const cap = Math.min(t, ROUND_COUNT, europeFeatures.length);
+        const cap = Math.min(t, ROUND_COUNT, playableFeatures.length);
         const cCapped = Math.min(c, cap);
-        const chosen = d3.shuffle([...europeFeatures]).slice(0, cap);
+        const chosen = d3.shuffle([...playableFeatures]).slice(0, cap);
         const pins = chosen.map((feat, idx) => {
           const [lon, lat] = d3.geoCentroid(feat);
           return { name: feat.properties.name, correct: idx < cCapped, lon, lat };
@@ -495,7 +546,7 @@
         updateScore();
         updateMilesOff();
         state.pins.forEach(pin => {
-          const feature = europeFeatures.find(f => f.properties.name === pin.name);
+          const feature = playableFeatures.find(f => f.properties.name === pin.name);
           if (feature) {
             countriesGroup.selectAll('path')
               .filter(d => d === feature)
@@ -617,6 +668,39 @@
       return [...code].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
     }
 
+    const US_POSTAL = {
+      'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
+      'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
+      'Florida': 'FL', 'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID',
+      'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS',
+      'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+      'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
+      'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV',
+      'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+      'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH', 'Oklahoma': 'OK',
+      'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+      'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT',
+      'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+      'Wisconsin': 'WI', 'Wyoming': 'WY',
+    };
+
+    function flagHTML(name) {
+      if (currentRegion().source === 'us') {
+        const code = US_POSTAL[name];
+        return code
+          ? `<img class="flag-img" src="flags/us-${code.toLowerCase()}.png" alt="${name}">`
+          : '';
+      }
+      return countryFlag(name);
+    }
+
+    function flagShareToken(name) {
+      if (currentRegion().source === 'us') {
+        return US_POSTAL[name] || '';
+      }
+      return countryFlag(name);
+    }
+
     const MAX_POINTS = ROUND_COUNT * 12; // also the divisor for tier %
     function getEurovisionTier(rawPoints) {
       const clamped = Math.max(0, rawPoints);
@@ -731,7 +815,7 @@
       document.querySelectorAll('.heart-rain').forEach(el => el.remove());
       if (zoom) svg.call(zoom.transform, d3.zoomIdentity);
       document.getElementById('sidebar').classList.remove('expanded');
-      state.pool      = d3.shuffle([...europeFeatures]).slice(0, Math.min(ROUND_COUNT, europeFeatures.length));
+      state.pool      = d3.shuffle([...playableFeatures]).slice(0, Math.min(ROUND_COUNT, playableFeatures.length));
       state.status    = new Map(state.pool.map(f => [f, 'todo']));
       state.current   = null;
       state.score     = { correct: 0, total: 0, points: 0, milesOff: 0 };
@@ -766,7 +850,7 @@
       const total = state.pool.length;
       setPrompt(`<button class="expand-btn" aria-label="Toggle list"><span class="expand-count">${done} / ${total}</span><span class="expand-arrow">▲</span></button><div class="esc-entry">
         <span class="esc-num">${num}</span>
-        <span class="esc-flag">${countryFlag(name)}</span>
+        <span class="esc-flag">${flagHTML(name)}</span>
         <span class="esc-name">${name}</span>
       </div>`);
       maybeShowJoyride();
@@ -801,7 +885,7 @@
 
     function renderCountries() {
       countriesGroup.selectAll('path')
-        .data(europeFeatures)
+        .data(playableFeatures)
         .join('path')
           .attr('d', pathGen)
           .attr('fill', LAND_COLOR)
@@ -810,7 +894,7 @@
     }
 
     function renderWorld() {
-      const playable = new Set(europeFeatures);
+      const playable = new Set(playableFeatures);
       const worldFeatures = allFeatures.filter(f => !playable.has(f));
       worldGroup.selectAll('path')
         .data(worldFeatures)
@@ -825,26 +909,28 @@
           .style('pointer-events', 'none');
     }
 
-    function setCountrySet(setName) {
-      if (!COUNTRY_SETS[setName] || setName === currentSet) return;
-      currentSet = setName;
+    async function setRegion(regionKey) {
+      if (!REGIONS[regionKey] || regionKey === currentSet) return;
+      currentSet = regionKey;
       document.querySelectorAll('.menu-item').forEach(i =>
-        i.classList.toggle('active', i.dataset.set === currentSet));
-      if (allFeatures) {
-        europeFeatures = allFeatures.filter(isPlayable);
-        renderWorld();
-        renderCountries();
-        startGame();
-      }
+        i.classList.toggle('active', i.dataset.region === currentSet));
+      allFeatures = await loadSource(currentRegion().source);
+      playableFeatures = allFeatures.filter(isPlayable);
+      projection = buildProjection(mapSize(), currentRegion().bbox);
+      pathGen    = d3.geoPath().projection(projection);
+      svg.call(zoom.transform, d3.zoomIdentity);
+      renderWorld();
+      renderCountries();
+      startGame();
     }
 
     document.getElementById('menu-button').addEventListener('click', (e) => {
       e.stopPropagation();
       document.getElementById('menu-dropdown').classList.toggle('hidden');
     });
-    document.querySelectorAll('.menu-item[data-set]').forEach(item => {
+    document.querySelectorAll('.menu-item[data-region]').forEach(item => {
       item.addEventListener('click', () => {
-        setCountrySet(item.dataset.set);
+        setRegion(item.dataset.region);
         document.getElementById('menu-dropdown').classList.add('hidden');
       });
     });
@@ -868,7 +954,7 @@
     });
     // Initial active state
     document.querySelectorAll('.menu-item').forEach(i =>
-      i.classList.toggle('active', i.dataset.set === currentSet));
+      i.classList.toggle('active', i.dataset.region === currentSet));
 
     let flagTooltipEl = null;
     let flagTooltipTimer = null;
@@ -878,7 +964,7 @@
       // Zoom to completed countries (works on both desktop list and mobile expanded flags)
       if (!entry.classList.contains('todo')) {
         const name = entry.dataset.name;
-        const feature = europeFeatures.find(f => f.properties.name === name);
+        const feature = playableFeatures.find(f => f.properties.name === name);
         if (feature) zoomToFeature(feature);
       }
       if (!document.getElementById('sidebar').classList.contains('expanded')) return;
@@ -920,8 +1006,10 @@
       const wrongPins   = state.pins.filter(p => !p.correct);
       const tier = getEurovisionTier(state.score.points);
       const lines = [`${state.score.points} (${state.score.correct}/${state.score.total}) — ${tier.label}`];
-      if (correctPins.length) lines.push('✅ ' + correctPins.map(p => countryFlag(p.name)).join(''));
-      if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => countryFlag(p.name)).join(''));
+      // Emoji flags concatenate cleanly without spaces; postal codes need a space.
+      const sep = currentRegion().source === 'us' ? ' ' : '';
+      if (correctPins.length) lines.push('✅ ' + correctPins.map(p => flagShareToken(p.name)).join(sep));
+      if (wrongPins.length)   lines.push('❌ ' + wrongPins.map(p => flagShareToken(p.name)).join(sep));
       lines.push('', buildShareUrl());
       return lines.join('\n');
     }
@@ -949,24 +1037,28 @@
     }
     document.getElementById('share-btn').addEventListener('click', shareGame);
 
-    function replayFromHash() {
+    async function replayFromHash() {
       const hash = location.hash;
       if (!hash.startsWith('#s=')) return false;
       let data;
       try { data = JSON.parse(atob(hash.slice(3))); }
       catch (e) { return false; }
       if (!data || !Array.isArray(data.p)) return false;
-      if (data.s && COUNTRY_SETS[data.s] && data.s !== currentSet) {
+      if (data.s && REGIONS[data.s] && data.s !== currentSet) {
         currentSet = data.s;
         document.querySelectorAll('.menu-item').forEach(i =>
-          i.classList.toggle('active', i.dataset.set === currentSet));
-        europeFeatures = allFeatures.filter(isPlayable);
+          i.classList.toggle('active', i.dataset.region === currentSet));
+        allFeatures = await loadSource(currentRegion().source);
+        playableFeatures = allFeatures.filter(isPlayable);
+        projection = buildProjection(mapSize(), currentRegion().bbox);
+        pathGen    = d3.geoPath().projection(projection);
+        svg.call(zoom.transform, d3.zoomIdentity);
         renderWorld();
         renderCountries();
       }
       state.pins = data.p.map(([n, c, x, y]) => ({ name: n, correct: c === 1, lon: x, lat: y }));
       state.pool   = state.pins
-        .map(pin => europeFeatures.find(f => f.properties.name === pin.name))
+        .map(pin => playableFeatures.find(f => f.properties.name === pin.name))
         .filter(Boolean);
       state.status = new Map(state.pool.map(f => {
         const pin = state.pins.find(p => p.name === f.properties.name);
@@ -983,7 +1075,7 @@
       state.phase = 'gameover';
       document.body.classList.add('game-over');
       state.pins.forEach(pin => {
-        const feature = europeFeatures.find(f => f.properties.name === pin.name);
+        const feature = playableFeatures.find(f => f.properties.name === pin.name);
         if (feature) {
           countriesGroup.selectAll('path')
             .filter(d => d === feature)
@@ -1022,7 +1114,7 @@
         features.map(f => {
           const name = f.properties.name;
           return `<div class="entry ${klass}" data-name="${name}">
-        <span class="entry-flag">${countryFlag(name)}</span>
+        <span class="entry-flag">${flagHTML(name)}</span>
         <span class="entry-name">${name}</span>
       </div>`;
         })
@@ -1248,7 +1340,7 @@
         if (pin.correct) {
           points += 12;
         } else {
-          const feature = europeFeatures.find(f => f.properties.name === pin.name);
+          const feature = playableFeatures.find(f => f.properties.name === pin.name);
           if (feature) milesOff += milesFromClickToBorder(feature, pin.lon, pin.lat);
         }
       }
@@ -1418,10 +1510,10 @@
       const wrongPins   = state.pins.filter(p => !p.correct);
       const sections = [];
       if (correctPins.length) {
-        sections.push(`<div class="emoji-section"><div class="emoji-header">✅</div><div class="emoji-flags">${correctPins.map(p => countryFlag(p.name)).join(' ')}</div></div>`);
+        sections.push(`<div class="emoji-section"><div class="emoji-header">✅</div><div class="emoji-flags">${correctPins.map(p => flagHTML(p.name)).join(' ')}</div></div>`);
       }
       if (wrongPins.length) {
-        sections.push(`<div class="emoji-section"><div class="emoji-header">❌</div><div class="emoji-flags">${wrongPins.map(p => countryFlag(p.name)).join(' ')}</div></div>`);
+        sections.push(`<div class="emoji-section"><div class="emoji-header">❌</div><div class="emoji-flags">${wrongPins.map(p => flagHTML(p.name)).join(' ')}</div></div>`);
       }
       emojiEl.innerHTML = sections.join('');
 
@@ -1460,7 +1552,7 @@
     window.addEventListener('resize', () => {
       const [w, h] = mapSize();
       svg.attr('width', w).attr('height', h);
-      projection = buildProjection([w, h]);
+      projection = buildProjection([w, h], currentRegion().bbox);
       pathGen    = d3.geoPath().projection(projection);
       worldGroup.selectAll('path').attr('d', pathGen);
       countriesGroup.selectAll('path').attr('d', pathGen);
