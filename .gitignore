@@ -1,2 +1,4 @@
 .DS_Store
 audio/raw/
+node_modules/
+data/uk-lads.derived.txt
