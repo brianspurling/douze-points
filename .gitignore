@@ -1,2 +1,6 @@
 .DS_Store
 audio/raw/
+node_modules/
+package.json
+package-lock.json
+data/uk-lads.derived.txt
