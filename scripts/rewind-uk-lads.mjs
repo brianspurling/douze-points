@@ -4,7 +4,7 @@
 // This script decodes the topojson, rewinds any malformed outer ring, re-encodes,
 // and writes the result back in place.
 //
-// Run: node scripts/rewind-uk-lads.mjs
+// Run: npm i topojson-client topojson-server d3-geo && node scripts/rewind-uk-lads.mjs
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { feature } from 'topojson-client';

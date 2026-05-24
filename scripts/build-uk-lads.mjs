@@ -1,4 +1,4 @@
-// Run: node scripts/build-uk-lads.mjs <NAME_KEY> <CODE_KEY>
+// Run: npm i topojson-client && node scripts/build-uk-lads.mjs <NAME_KEY> <CODE_KEY>
 // Reads data/uk-lads.json, prints two constants ready to paste into index.html.
 import { readFileSync } from 'node:fs';
 import { feature } from 'topojson-client';
