@@ -468,8 +468,14 @@
     };
     let currentSet = 'eurovision';
     function currentRegion() { return REGIONS[currentSet]; }
+    function featureName(f) {
+      if (currentRegion().source === 'uk') {
+        return f.properties.LAD24NM || f.properties.LAD23NM || f.properties.name;
+      }
+      return f.properties.name;
+    }
     function isPlayable(feature) {
-      return currentRegion().set.has(feature.properties.name);
+      return currentRegion().set.has(featureName(feature));
     }
 
     // Compute Mercator scale + translate manually so the lat/lon bbox FILLS [w, h].
@@ -530,7 +536,7 @@
         const chosen = d3.shuffle([...playableFeatures]).slice(0, cap);
         const pins = chosen.map((feat, idx) => {
           const [lon, lat] = d3.geoCentroid(feat);
-          return { name: feat.properties.name, correct: idx < cCapped, lon, lat };
+          return { name: featureName(feat), correct: idx < cCapped, lon, lat };
         });
         state.pool    = chosen;
         state.status  = new Map(chosen.map((f, i) => [f, i < cCapped ? 'correct' : 'wrong']));
@@ -546,7 +552,7 @@
         updateScore();
         updateMilesOff();
         state.pins.forEach(pin => {
-          const feature = playableFeatures.find(f => f.properties.name === pin.name);
+          const feature = playableFeatures.find(f => featureName(f) === pin.name);
           if (feature) {
             countriesGroup.selectAll('path')
               .filter(d => d === feature)
@@ -581,7 +587,7 @@
 
     // ── Helpers ─────────────────────────────────────────────────────────
     function currentName() {
-      return state.current.properties.name;
+      return featureName(state.current);
     }
 
     function setPrompt(html) {
@@ -964,7 +970,7 @@
       // Zoom to completed countries (works on both desktop list and mobile expanded flags)
       if (!entry.classList.contains('todo')) {
         const name = entry.dataset.name;
-        const feature = playableFeatures.find(f => f.properties.name === name);
+        const feature = playableFeatures.find(f => featureName(f) === name);
         if (feature) zoomToFeature(feature);
       }
       if (!document.getElementById('sidebar').classList.contains('expanded')) return;
@@ -1058,10 +1064,10 @@
       }
       state.pins = data.p.map(([n, c, x, y]) => ({ name: n, correct: c === 1, lon: x, lat: y }));
       state.pool   = state.pins
-        .map(pin => playableFeatures.find(f => f.properties.name === pin.name))
+        .map(pin => playableFeatures.find(f => featureName(f) === pin.name))
         .filter(Boolean);
       state.status = new Map(state.pool.map(f => {
-        const pin = state.pins.find(p => p.name === f.properties.name);
+        const pin = state.pins.find(p => p.name === featureName(f));
         return [f, pin.correct ? 'correct' : 'wrong'];
       }));
       state.current = null;
@@ -1075,7 +1081,7 @@
       state.phase = 'gameover';
       document.body.classList.add('game-over');
       state.pins.forEach(pin => {
-        const feature = playableFeatures.find(f => f.properties.name === pin.name);
+        const feature = playableFeatures.find(f => featureName(f) === pin.name);
         if (feature) {
           countriesGroup.selectAll('path')
             .filter(d => d === feature)
@@ -1101,7 +1107,7 @@
       });
 
       // LAST: render the new layout
-      const alphaCompare = (a, b) => a.properties.name.localeCompare(b.properties.name);
+      const alphaCompare = (a, b) => featureName(a).localeCompare(featureName(b));
       const todo    = state.pool.filter(f => state.status.get(f) === 'todo');
       const correct = state.pool.filter(f => state.status.get(f) === 'correct').sort(alphaCompare);
       const wrong   = state.pool.filter(f => state.status.get(f) === 'wrong').sort(alphaCompare);
@@ -1112,7 +1118,7 @@
       ];
       container.innerHTML = zones.flatMap(({ features, klass }) =>
         features.map(f => {
-          const name = f.properties.name;
+          const name = featureName(f);
           return `<div class="entry ${klass}" data-name="${name}">
         <span class="entry-flag">${flagHTML(name)}</span>
         <span class="entry-name">${name}</span>
@@ -1340,7 +1346,7 @@
         if (pin.correct) {
           points += 12;
         } else {
-          const feature = playableFeatures.find(f => f.properties.name === pin.name);
+          const feature = playableFeatures.find(f => featureName(f) === pin.name);
           if (feature) milesOff += milesFromClickToBorder(feature, pin.lon, pin.lat);
         }
       }
