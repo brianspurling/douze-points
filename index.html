@@ -428,6 +428,7 @@
     const REGIONS = {
       eurovision: {
         source: 'world',
+        noun: 'country',
         bbox: [-11, 41, 34, 71],
         set: new Set([
           'Albania', 'Andorra', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
@@ -442,6 +443,7 @@
       },
       europe: {
         source: 'world',
+        noun: 'country',
         bbox: [-11, 41, 34, 71],
         set: new Set([
           'Albania', 'Andorra', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herz.',
@@ -456,6 +458,7 @@
       },
       usa: {
         source: 'us',
+        noun: 'state',
         bbox: [-125, -66, 24, 50],
         set: new Set([
           'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
@@ -472,6 +475,7 @@
       },
       uk: {
         source: 'uk',
+        noun: 'district',
         bbox: [-8.5, 2, 49.8, 61],
         set: new Set([
         "Aberdeen City",
@@ -1621,6 +1625,8 @@
     const JOYRIDE_SCORE_KEY = 'douze-points-joyride-score-seen';
     function maybeShowJoyride() {
       try { if (localStorage.getItem(JOYRIDE_KEY)) return; } catch (e) {}
+      document.querySelector('#joyride span').textContent =
+        `Click where you think this ${currentRegion().noun} is!`;
       document.getElementById('joyride').classList.remove('hidden');
     }
     function hideJoyride() {
