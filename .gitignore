@@ -5,3 +5,8 @@ package.json
 package-lock.json
 data/uk-lads.derived.txt
 scripts/fetch-uk-coa.misses.json
+scripts/uk-commons-manifest.json
+scripts/uk-missing.json
+scripts/uk-commons-good.json
+scripts/uk-commons-bad.json
+.claude/worktrees/
